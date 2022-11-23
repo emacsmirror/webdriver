@@ -20,7 +20,60 @@
 
 ;;; Commentary:
 
-;; None.
+;; See the specification in https://www.w3.org/TR/webdriver/
+
+;; List of Endpoints supported, by Command Name:
+;; New Session
+;; Delete Session
+;; Get Timeouts
+;; Set Timeouts
+;; Navigate To
+;; Get Current Url
+;; Back
+;; Forward
+;; Refresh
+;; Get Title
+;; Get Window Handle
+;; Close Window
+;; Switch to Window
+;; Get Window Handles
+;; New Window
+;; Switch To Frame
+;; Switch To Parent Frame
+;; Get Window Rect
+;; Set Window Rect
+;; Maximize Window
+;; Minimize Window
+;; Fullscreen Window
+;; Get Active Element
+;; Find Element
+;; Find Elements
+;; Find Element From Element
+;; Find Elemenets From Element
+;; Is Element Selected
+;; Get Element Attribute
+;; Get Element Property
+;; Get Element CSS Value
+;; Get Element Text
+;; Get Element Tag Name
+;; Get Element Rect
+;; Is Element Enabled
+;; Element Click
+;; Element Clear
+;; Element Send Keys
+;; Get Page Source
+;; Execute Script
+;; Execute Async Script
+;; Get All Cookies
+;; Get Named Cookie
+;; Add Cookie
+;; Delete Cookie
+;; Dismiss Alert
+;; Accept Alert
+;; Get Alert Text
+;; Send Alert Text
+;; Take Screenshot
+;; Take Element Screenshot
 
 ;;; Code:
 ;; Utils.
@@ -257,9 +310,12 @@ Stops the process stored in `process', and sets it to nil."
 
 ;; WebDriver Timeouts.
 (defclass webdriver-timeouts nil
-  ((script :initform 30 :initarg :script :type (or integer null))
-   (pageLoad :initform 300 :initarg :pageLoad :type (or integer null))
-   (implicit :initform 0 :initarg :implicit :type (or integer null)))
+  ((script :initform 30 :initarg :script :type (or integer null)
+           :documentation "Timeout limit for script evaluation.")
+   (pageLoad :initform 300 :initarg :pageLoad :type (or integer null)
+             :documentation "Timeout limit for an explicit navigation attempt.")
+   (implicit :initform 0 :initarg :implicit :type (or integer null)
+             :documentation "Timeout limit for locating an element."))
   "Representation of a WebDriver timeouts configuration.
 
 Each property is stored as a number of seconds.")
@@ -323,14 +379,18 @@ TIMEOUT should be a symbol, one of script, pageLoad or implicit."
 (cl-defmethod webdriver-set-timeout ((self webdriver-session) timeout secs)
   "Set timeout TIMEOUT to value SECS times 1000 in session SELF.
 
-TIMEOUT should be a key, one of :script, :pageLoad or :implicit."
-  (let* ((command (make-instance 'webdriver-command
-                                 :method "POST"
-                                 :name (format "session/%s/timeouts"
-                                               (oref self id))
-                                 :body (list timeout (* secs 1000))))
-         (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+TIMEOUT should be a symbol, one of script, pageLoad or implicit."
+  (if (member timeout '(script pageLoad implicit))
+      (let* ((command (make-instance 'webdriver-command
+                                     :method "POST"
+                                     :name (format "session/%s/timeouts"
+                                                   (oref self id))
+                                     :body (list (intern (format ":%s" timeout))
+                                                 (* secs 1000))))
+             (value (webdriver-send-command self command)))
+        (webdriver-check-for-error value))
+    (error (format "Webdriver error (%s): %s"
+                   "invalid timeout" ""))))
 
 ;; Window handles.
 (cl-defmethod webdriver-get-window-handle ((self webdriver-session))
@@ -937,29 +997,6 @@ Serializes the body of COMMAND only if it is not a string."
     (prog1 (or (alist-get 'value value)
                value)
       (kill-buffer buffer))))
-
-;; TODO.
-;; (cl-defmethod webdriver-get-computed-role ((self webdriver-session)
-;;                                            (element webdriver-element))
-;;   "..."
-;;   (let* ((command (make-instance 'webdriver-command
-;;                                  :method "GET"
-;;                                  :name (format "session/%s/element/%s/computedrole"
-;;                                                (oref self id)
-;;                                                (oref element uuid))))
-;;          (value (webdriver-send-command self command)))
-;;     value))
-
-;; (cl-defmethod webdriver-get-computed-label ((self webdriver-session)
-;;                                            (element webdriver-element))
-;;   "..."
-;;   (let* ((command (make-instance 'webdriver-command
-;;                                  :method "GET"
-;;                                  :name (format "session/%s/element/%s/computedlabel"
-;;                                                (oref self id)
-;;                                                (oref element uuid))))
-;;          (value (webdriver-send-command self command)))
-;;     value))
 
 (provide 'webdriver)
 ;;; webdriver.el ends here
