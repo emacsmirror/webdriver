@@ -1,0 +1,965 @@
+;;; webdriver.el --- WebDriver local end implementation  -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2022  Mauro Aranda
+
+;; Author: Mauro Aranda <mauro@maurooaranda.com>
+;; Keywords: tools
+
+;; webdriver is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; webdriver is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with webdriver.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; None.
+
+;;; Code:
+;; Utils.
+(defun webdriver--get-free-port ()
+  "Return a free port on localhost, as an integer."
+  (let (server ret)
+    (unwind-protect
+        (progn
+          (setq server (make-network-process :name "dummy"
+                                             :server t
+                                             :host 'local
+                                             ;; Get a random port available.
+                                             :service t))
+          (setq ret (cadr (process-contact server))))
+      (delete-process server))
+    ret))
+
+;; Errors.
+(defun webdriver-check-for-error (value)
+  "Check if VALUE, the JSON response from the webdriver, is an error value.
+
+If it is, then signal an error.  If it is not, return VALUE."
+  (if (alist-get 'error value)
+      (error (format "Webdriver error (%s): %s"
+                     (alist-get 'error value) (alist-get 'message value)))
+    value))
+
+;; Service.
+(defclass webdriver-service nil
+  ((executable
+    :initarg :executable
+    :type string)
+   (port
+    :initarg :port
+    :initform nil
+    :type (or boolean integer))
+   (log
+    :initarg :log
+    :initform nil
+    :type (or boolean string buffer))
+   (buffer
+    :initarg :buffer
+    :initform nil
+    :type (or boolean string buffer))
+   (process
+    :initform nil
+    :type (or boolean process))
+   (args
+    :initarg :args
+    :initform nil
+    :type list)))
+
+(cl-defmethod webdriver-service-start ((self webdriver-service)
+                                       &optional retries)
+    "Start a new service described by SELF.
+
+This starts a new process which runs `executable' and connects it via a pipe.
+
+To start the new process, it calls `make-process', with `executable' as the
+program to run and `args' as the arguments to pass.  It stores the new process
+in `process'.
+
+If `log' is non-nil, use that buffer to log information.
+
+If `buffer' is non-nil, associate the process with that buffer.
+
+Optional argument RETRIES may be a number to specify the number of attempts
+to connect to the server before giving up."
+  (let ((exec (oref self executable))
+        (retries (or retries 10))
+        (i 0)
+        done)
+    (unless (executable-find exec)
+      (error "Can't find the driver to run"))
+    (oset self process (make-process :name exec
+                                     :command (append (list exec)
+                                                      (oref self args))
+                                     :connection-type 'pipe
+                                     :buffer (oref self buffer)))
+    (accept-process-output (oref self process) 1.0 nil t)
+    (while (and (process-live-p (oref self process))
+                (< i retries)
+                (not (setq done (webdriver-service-connectable-p self))))
+      (setq i (1+ i)))
+    (cond
+     ((not (process-live-p (oref self process)))
+      (error "Service unexpectedly closed"))
+     ((= i retries)
+      (error "Couldn't connect to the service"))
+     (t
+      (when (oref self log)
+        (with-current-buffer (get-buffer-create (oref self log))
+          (insert "Started executable correctly")))))))
+
+(cl-defmethod webdriver-service-stop ((self webdriver-service))
+    "Stop the service described by SELF.
+
+Stops the process stored in `process', and sets it to nil."
+  (when (and (oref self log) (buffer-live-p (oref self log)))
+    (kill-buffer (oref self log)))
+  (when (and (processp (oref self process)))
+    (delete-process (oref self process)))
+  (oset self process nil)
+  (when (and (oref self buffer) (buffer-live-p (oref self buffer)))
+    (kill-buffer (oref self buffer))))
+
+(cl-defmethod webdriver-service-connectable-p ((self webdriver-service))
+  "Non-nil if connection can be established to the server associated to SELF."
+  (and (process-live-p (oref self process))
+       (condition-case _
+           (let (conn)
+             (unwind-protect
+                 (setq conn (make-network-process :name "test-connection"
+                                                  :host 'local
+                                                  :service (oref self port)))
+               (delete-process conn)))
+         (error nil))))
+
+(cl-defmethod webdriver-service-url ((self webdriver-service))
+  "Return the URL where the process associated to SELF is listening."
+  (format "http://localhost:%d" (or (oref self port) 0)))
+
+(defclass webdriver-service-firefox (webdriver-service)
+  ((executable
+    :initform "geckodriver")
+   (port
+    :initform 4444)))
+
+(cl-defmethod webdriver-service-start :before
+  ((self webdriver-service-firefox) &optional retries)
+  "Add a port argument to the command line."
+  (oset self args (list "--port" (number-to-string (oref self port)))))
+
+;; Session.
+(defclass webdriver-session nil
+  ((service :initform nil
+            :initarg :service
+            :type (or boolean webdriver-service))
+   (id :initform nil
+       :type (or boolean string))
+   (requested-capabilities
+    :initform nil
+    :initarg :requested-capabilities
+    :type list)
+   (capabilities
+    :initform nil
+    :type list)))
+
+(cl-defmethod initialize-instance :after ((self webdriver-session) &rest _args)
+  "If there is no service associated with SELF, create a default one."
+  (unless (oref self service)
+    (let ((service (make-instance 'webdriver-service-firefox)))
+      (webdriver-service-start service)
+      (oset self service service))))
+
+(cl-defmethod webdriver-session-start ((self webdriver-session))
+  "Start a new session associated to SELF."
+  (when (oref self id)
+    (error "Session already started"))
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name "session"
+                                 :body `(:capabilities
+                                         ,(oref self requested-capabilities))))
+         (value (webdriver-send-command self command)))
+    (when (alist-get 'error value)
+      (error "Unable to start a session: %S" (alist-get 'error value)))
+    (oset self id (alist-get 'sessionId value))
+    (oset self capabilities (alist-get 'capabilities value))))
+
+(cl-defmethod webdriver-session-stop ((self webdriver-session))
+  "Stop the session associated to SELF."
+  (unless (oref self id)
+    (error "Session doesn't have a session ID"))
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "DELETE"
+                                 :name (format "session/%s" (oref self id))))
+         (value (webdriver-send-command self command)))
+    (oset self id nil)))
+
+(cl-defmethod webdriver-goto-url ((self webdriver-session) url)
+  "With the session SELF, navigate to the url URL."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/url" (oref self id))
+                                 :body `(:url ,url)))
+         (value (webdriver-send-command self command)))
+    value))
+  
+(cl-defmethod webdriver-get-current-url ((self webdriver-session))
+  "Return the current url of the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/url"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-go-back ((self webdriver-session))
+  "Go back to the previous url of the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/back"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-go-forward ((self webdriver-session))
+  "Go forward to the next url of the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/forward"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-refresh ((self webdriver-session))
+  "Refresh the current url of the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/refresh"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-title ((self webdriver-session))
+  "Get the title of the current page visited by SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/title"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+;; WebDriver Timeouts.
+(defclass webdriver-timeouts nil
+  ((script :initform 30 :initarg :script :type (or integer null))
+   (pageLoad :initform 300 :initarg :pageLoad :type (or integer null))
+   (implicit :initform 0 :initarg :implicit :type (or integer null)))
+  "Representation of a WebDriver timeouts configuration.
+
+Each property is stored as a number of seconds.")
+
+(cl-defmethod webdriver-object-to-plist ((self webdriver-timeouts))
+  "Represent SELF, a `webdriver-timeouts' object, as a property list.
+
+The property list is as: (PROP VAL), where PROP is each property of SELF
+and VAL is the value of that property."
+  (let ((timeouts '(:script :pageLoad :implicit))
+        (props '(script pageLoad implicit)))
+    (cl-mapcan (lambda (timeout prop)
+                 (when (slot-value self prop)
+                   (list timeout (* (slot-value self prop) 1000))))
+               timeouts props)))                 
+
+(cl-defmethod webdriver-json-serialize ((self webdriver-timeouts))
+  "JSON-serialize SELF, a `webdriver-timeouts' object.
+
+Calls `json-serialize' with SELF represented as a property list."
+  (json-serialize (webdriver-object-to-plist self)))
+
+(cl-defmethod webdriver-get-timeouts ((self webdriver-session))
+  "Get the timeout specification for the session SELF.
+
+Returns a `webdriver-timeouts' object with the current timeout specification."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/timeouts"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    (webdriver-check-for-error value)
+    (make-instance 'webdriver-timeouts
+                   :script (/ (alist-get 'script value) 1000)
+                   :pageLoad (/ (alist-get 'pageLoad value) 1000)
+                   :implicit (/ (alist-get 'implicit value) 1000))))
+
+(cl-defmethod webdriver-get-timeout ((self webdriver-session) timeout)
+  "Get the timeout in seconds for timeout TIMEOUT in session SELF.
+
+TIMEOUT should be a symbol, one of script, pageLoad or implicit."
+  (let ((timeouts (webdriver-get-timeouts self)))
+    (if timeout
+        (if (member timeout '(script pageLoad implicit))
+            (slot-value timeouts timeout)
+          (error (format "Webdriver error (%s): %s"
+                         "invalid timeout" "")))
+      timeouts)))
+
+(cl-defmethod webdriver-set-timeouts ((self webdriver-session)
+                                      (timeouts webdriver-timeouts))
+  "Set the timeouts specification for the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/timeouts"
+                                               (oref self id))
+                                 :body (webdriver-json-serialize timeouts)))
+         (value (webdriver-send-command self command)))
+    (webdriver-check-for-error value)))
+
+(cl-defmethod webdriver-set-timeout ((self webdriver-session) timeout secs)
+  "Set timeout TIMEOUT to value SECS times 1000 in session SELF.
+
+TIMEOUT should be a key, one of :script, :pageLoad or :implicit."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/timeouts"
+                                               (oref self id))
+                                 :body (list timeout (* secs 1000))))
+         (value (webdriver-send-command self command)))
+    (webdriver-check-for-error value)))
+
+;; Window handles.
+(cl-defmethod webdriver-get-window-handle ((self webdriver-session))
+  "Get the current window handle associated to the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/window"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-close-window ((self webdriver-session))
+  "Close the current window handle associated to the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "DELETE"
+                                 :name (format "session/%s/window"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    ;; Close session when there are no more windows.
+    (when (seq-empty-p value)
+      (webdriver-session-stop self))))
+
+(cl-defmethod webdriver-get-window-handles ((self webdriver-session))
+  "Get all window handles associated to the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/window/handles"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-create-new-window ((self webdriver-session) type)
+  "Create a new window handle of type TYPE for the session SELF.
+
+TYPE defaults to \"tab\"."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/window/new"
+                                               (oref self id))
+                                 :body (json-serialize
+                                        `(:type ,(or type "tab")))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-window-rect ((self webdriver-session))
+  "Get the window rectangle for the current window handle of the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/window/rect"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(defclass webdriver-rect nil
+  ((width :initarg :width
+          :initform 1280
+          :type number)
+   (height :initarg :height
+           :initform 947
+           :type number)
+   (x :initarg :x
+      :initform 98
+      :type number)
+   (y :initarg :y
+      :initform 54
+      :type number)))
+
+(cl-defmethod webdriver-json-serialize ((self webdriver-rect))
+  "JSON-Serialize SELF."
+  (json-serialize (list :width (oref self width)
+                        :height (oref self height)
+                        :x (oref self x)
+                        :y (oref self y))))
+
+(cl-defmethod webdriver-set-window-rect ((self webdriver-session)
+                                         (rect webdriver-rect))
+  "Set rectangle to RECT for the current window handle of session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/window/rect"
+                                               (oref self id))
+                                 :body (webdriver-json-serialize rect)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-maximize-window ((self webdriver-session))
+  "Maximize the current window associated to the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/window/maximize"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-minimize-window ((self webdriver-session))
+  "Minimize the current window associated to the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/window/minimize"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-fullscreen-window ((self webdriver-session))
+  "Fullscreen the current window associated to the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/window/fullscreen"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-switch-to-frame ((self webdriver-session) id)
+  "Switch to the frame ID in the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/frame"
+                                               (oref self id))
+                                 :body (json-serialize (list :id id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-switch-to-parent-frame ((self webdriver-session))
+  "Switch to the parent frame in the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/frame/parent"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(defclass webdriver-by nil
+  ((strategy :initform ""
+             :initarg :strategy
+             :type string)
+   (selector :initform ""
+             :initarg :selector
+             :type string)))
+
+(cl-defmethod webdriver-json-serialize ((self webdriver-by))
+  "JSON-Serialize SELF."
+  (json-serialize (list :using (oref self strategy)
+                        :value (oref self selector))))
+
+(defclass webdriver-element nil
+  ((uuid :initform ""
+         :initarg :reference
+         :type string)))
+
+(cl-defmethod webdriver-find-element ((self webdriver-session)
+                                      (by webdriver-by))
+  "Find an element in the current page visited by SELF with strategy BY."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/element"
+                                               (oref self id))
+                                 :body (webdriver-json-serialize by)))
+         (value (webdriver-send-command self command)))
+    (make-instance 'webdriver-element :reference (cdar value))))
+
+(cl-defmethod webdriver-find-elements ((self webdriver-session)
+                                       (by webdriver-by))
+  "Find all elements in the current page visited by SELF with strategy BY."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/elements"
+                                               (oref self id))
+                                 :body (webdriver-json-serialize by)))
+         (value (webdriver-send-command self command)))
+    (mapcar (lambda (el)
+              (make-instance 'webdriver-element :reference (cdar el)))
+            value)))
+
+(cl-defmethod webdriver-find-element-from-element ((self webdriver-session)
+                                                   (element webdriver-element)
+                                                   (by webdriver-by))
+  "Starting from element ELEMENT, find an element by BY in the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/element/%s/element"
+                                               (oref self id)
+                                               (oref element uuid))
+                                 :body (webdriver-json-serialize by)))
+         (value (webdriver-send-command self command)))
+    (make-instance 'webdriver-element :reference (cdar value))))
+
+(cl-defmethod webdriver-find-elements-from-element ((self webdriver-session)
+                                                    (element webdriver-element)
+                                                    (by webdriver-by))
+  "Starting from element ELEMENT, find all elements by BY in the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/element/%s/elements"
+                                               (oref self id)
+                                               (oref element uuid))
+                                 :body (webdriver-json-serialize by)))
+         (value (webdriver-send-command self command)))
+    (mapcar (lambda (el)
+              (make-instance 'webdriver-element :reference (cdar el)))
+            value)))
+
+(defclass webdriver-shadow nil
+  ((uuid :initform ""
+         :initarg :reference
+         :type string)))
+
+(cl-defmethod webdriver-find-element-from-shadow-root ((self webdriver-session)
+                                                       (shadow webdriver-shadow)
+                                                       (by webdriver-by))
+  "Starting from the shadow root SHADOW, find an element by BY in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/shadow/%s/element"
+                                               (oref self id)
+                                               (oref shadow uuid))
+                                 :body (webdriver-json-serialize by)))
+         (value (webdriver-send-command self command)))
+    (make-instance 'webdriver-element :reference (cdar value))))
+
+(cl-defmethod webdriver-find-elements-from-shadow-root
+  ((self webdriver-session)
+   (shadow webdriver-shadow)
+   (by webdriver-by))
+  "Start from the shadow root SHADOW and find all elements by BY in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/shadow/%s/elements"
+                                               (oref self id)
+                                               (oref shadow uuid))
+                                 :body (webdriver-json-serialize by)))
+         (value (webdriver-send-command self command)))
+    (mapcar (lambda (el)
+              (make-instance 'webdriver-element :reference (cdar el)))
+            value)))
+
+(cl-defmethod webdriver-get-active-element ((self webdriver-session))
+  "Get the active element in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/element/active"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    (make-instance 'webdriver-element :reference (cdar value))))
+
+(cl-defmethod webdriver-get-element-shadow-root ((self webdriver-session)
+                                                 (element webdriver-element))
+  "Get the shadow root for element ELEMENT in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/element/%s/shadow"
+                                               (oref self id)
+                                               (oref element uuid))))
+         (value (webdriver-send-command self command)))
+    ;; TODO: Handle errors.
+    (make-instance 'webdriver-shadow :reference (cdar value))))
+
+(cl-defmethod webdriver-element-selected-p ((self webdriver-session)
+                                            (element webdriver-element))
+  "Non-nil if element ELEMENT in session SELF is selected."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/element/%s/selected"
+                                               (oref self id)
+                                               (oref element uuid))))
+         (value (webdriver-send-command self command)))
+    (cond ((eq value json-false) nil)
+          (t t))))
+
+(cl-defmethod webdriver-get-element-attribute ((self webdriver-session)
+                                               (element webdriver-element)
+                                               attr)
+  "For element ELEMENT in session SELF, return the value of attribute ATTR."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name
+                                 (format "session/%s/element/%s/attribute/%s"
+                                         (oref self id)
+                                         (oref element uuid)
+                                         attr)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-element-property ((self webdriver-session)
+                                              (element webdriver-element)
+                                              prop)
+  "For element ELEMENT in session SELF, return the value of property PROP."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name
+                                 (format "session/%s/element/%s/property/%s"
+                                         (oref self id)
+                                         (oref element uuid)
+                                         prop)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-element-css-value ((self webdriver-session)
+                                               (element webdriver-element)
+                                               css-value)
+  "For element ELEMENT in session SELF, return the value of CSS-VALUE."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/element/%s/css/%s"
+                                               (oref self id)
+                                               (oref element uuid)
+                                               css-value)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-element-text ((self webdriver-session)
+                                          (element webdriver-element))
+  "For element ELEMENT in session SELF, return its text."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/element/%s/text"
+                                               (oref self id)
+                                               (oref element uuid))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-element-tag-name ((self webdriver-session)
+                                              (element webdriver-element))
+  "For element ELEMENT in session SELF, return its tag name."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/element/%s/name"
+                                               (oref self id)
+                                               (oref element uuid))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-element-rect ((self webdriver-session)
+                                          (element webdriver-element))
+  "For element ELEMENT in session SELF, return its rectangle."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/element/%s/rect"
+                                               (oref self id)
+                                               (oref element uuid))))
+         (value (webdriver-send-command self command)))
+    (make-instance 'webdriver-rect
+                   :x (alist-get 'x value)
+                   :y (alist-get 'y value)
+                   :width (alist-get 'width value)
+                   :height (alist-get 'height value))))
+                                 
+(cl-defmethod webdriver-element-enabled-p ((self webdriver-session)
+                                           (element webdriver-element))
+  "Non-nil if element ELEMENT in session SELF is enabled."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/element/%s/enabled"
+                                               (oref self id)
+                                               (oref element uuid))))
+         (value (webdriver-send-command self command)))
+    (cond ((eq value json-false) nil)
+          (t t))))
+
+(cl-defmethod webdriver-element-click ((self webdriver-session)
+                                       (element webdriver-element))
+  "Click the element ELEMENT in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/element/%s/click"
+                                               (oref self id)
+                                               (oref element uuid))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-element-clear ((self webdriver-session)
+                                       (element webdriver-element))
+  "Clear the element ELEMENT in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/element/%s/clear"
+                                               (oref self id)
+                                               (oref element uuid))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-element-send-keys ((self webdriver-session)
+                                           (element webdriver-element)
+                                           text)
+  "Send TEXT to element ELEMENT in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/element/%s/value"
+                                               (oref self id)
+                                               (oref element uuid))
+                                 :body `(:text ,text)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-page-source ((self webdriver-session))
+  "Get the page source for the current page visited by SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/source"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-execute-synchronous-script ((self webdriver-session)
+                                                    script args)
+  "Execute the script SCRIPT with arguments ARGS in session SELF, synchronously."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/execute/sync"
+                                               (oref self id))
+                                 :body (list :script script
+                                             :args args)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-execute-asynchronous-script ((self webdriver-session)
+                                                     script args)
+  "Execute the script SCRIPT with arguments ARGS in session SELF, asynchronously."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/execute/async"
+                                               (oref self id))
+                                 :body (list :script script
+                                             :args args)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-all-cookies ((self webdriver-session))
+  "Get all cookies in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/cookie"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-cookie ((self webdriver-session)
+                                    name)
+  "Get a cookied named NAME in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/cookie/%s"
+                                               (oref self id)
+                                               name)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-add-cookie ((self webdriver-session)
+                                    cookie)
+  "Add a cookie COOKIE to the session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/cookie"
+                                               (oref self id))
+                                 :body (list :cookie cookie)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-delete-cookie ((self webdriver-session)
+                                       name)
+  "Delete the cookie named NAME in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "DELETE"
+                                 :name (format "session/%s/cookie/%s"
+                                               (oref self id)
+                                               name)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-delete-all-cookies ((self webdriver-session))
+  "Delete all cookies in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "DELETE"
+                                 :name (format "session/%s/cookie"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(defclass webdriver-actions nil
+  ((actions :initform nil
+            :initarg :actions
+            :type list)))
+
+(cl-defmethod webdriver-perform-actions ((self webdriver-session)
+                                         (actions webdriver-actions))
+  "Perform the actions ACTIONS in session SELF."
+  (let* ((comand (make-instance 'webdriver-command
+                                :method "POST"
+                                :name (format "session/%s/actions"
+                                              (oref self id))
+                                :body (json-serialize
+                                       (list :actions (oref actions actions)))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-release-actions ((self webdriver-session))
+  "Release the actions in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "DELETE"
+                                 :name (format "session/%s/actions"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-dismiss-alert ((self webdriver-session))
+  "Dismiss an alert in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/alert/dismiss"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-accept-alert ((self webdriver-session))
+  "Accept an alert in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/alert/accept"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-get-alert-text ((self webdriver-session))
+  "Return the alert text in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/alert/text"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-send-alert-text ((self webdriver-session)
+                                         text)
+  "Send text TEXT to the alert in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/alert/text"
+                                               (oref self id))
+                                 :body (list :text text)))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-take-screenshot ((self webdriver-session))
+  "Return an encoded string of a screenshot capture in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format "session/%s/screenshot"
+                                               (oref self id))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-take-element-screenshot ((self webdriver-session)
+                                                 (element webdriver-element))
+  "As `webdriver-take-screenshot', but for an element ELEMENT in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "GET"
+                                 :name (format
+                                        "session/%s/element/%s/screenshot"
+                                        (oref self id)
+                                        (oref element uuid))))
+         (value (webdriver-send-command self command)))
+    value))
+
+(cl-defmethod webdriver-print-page ((self webdriver-session)
+                                    printobj)
+  "Print the current page visited by SELF as a pdf file, using PRINTOBJ.
+
+PRINTOBJ is a plist with all the parameters to pass to the print command."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/print"
+                                               (oref self id))
+                                 :body printobj))
+         (value (webdriver-send-command self command)))
+    value))                  
+         
+;; Webdriver Commands.
+(defclass webdriver-command nil
+  ((name :initform ""
+         :initarg :name
+         :type string)
+   (method :initform "GET"
+           :initarg :method
+           :type string)
+   (body :initform nil
+         :initarg :body
+         :type (or list string))))
+
+(cl-defmethod webdriver-send-command ((self webdriver-session)
+                                      (command webdriver-command))
+  "Send the command COMMAND in session SELF.
+
+Serializes the body of COMMAND only if it is not a string."
+  (let* ((url-request-method (oref command method))
+         (url-request-data (if (stringp (oref command body))
+                               (oref command body)
+                             (json-serialize (oref command body))))
+         (buffer (url-retrieve-synchronously
+                  (concat (webdriver-service-url (oref self service))
+                          "/" (oref command name))))
+         (value (with-current-buffer buffer
+                  (goto-char (point-min))
+                  (re-search-forward "\n\n")
+                  (json-read))))
+    (prog1 (or (alist-get 'value value)
+               value)
+      (kill-buffer buffer))))
+
+;; TODO.
+;; (cl-defmethod webdriver-get-computed-role ((self webdriver-session)
+;;                                            (element webdriver-element))
+;;   "..."
+;;   (let* ((command (make-instance 'webdriver-command
+;;                                  :method "GET"
+;;                                  :name (format "session/%s/element/%s/computedrole"
+;;                                                (oref self id)
+;;                                                (oref element uuid))))
+;;          (value (webdriver-send-command self command)))
+;;     value))
+
+;; (cl-defmethod webdriver-get-computed-label ((self webdriver-session)
+;;                                            (element webdriver-element))
+;;   "..."
+;;   (let* ((command (make-instance 'webdriver-command
+;;                                  :method "GET"
+;;                                  :name (format "session/%s/element/%s/computedlabel"
+;;                                                (oref self id)
+;;                                                (oref element uuid))))
+;;          (value (webdriver-send-command self command)))
+;;     value))
+
+(provide 'webdriver)
+;;; webdriver.el ends here
