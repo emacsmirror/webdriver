@@ -633,7 +633,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
   ((self webdriver-session)
    (shadow webdriver-shadow)
    (by webdriver-by))
-  "Start from the shadow root SHADOW and find all elements by BY in session SELF."
+  "Start from shadow root SHADOW and find all elements by BY in session SELF."
   (let* ((command (make-instance 'webdriver-command
                                  :method "POST"
                                  :name (format "session/%s/shadow/%s/elements"
@@ -755,7 +755,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                    :y (alist-get 'y value)
                    :width (alist-get 'width value)
                    :height (alist-get 'height value))))
-                                 
+
 (cl-defmethod webdriver-element-enabled-p ((self webdriver-session)
                                            (element webdriver-element))
   "Non-nil if element ELEMENT in session SELF is enabled."
@@ -814,7 +814,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
 
 (cl-defmethod webdriver-execute-synchronous-script ((self webdriver-session)
                                                     script args)
-  "Execute the script SCRIPT with arguments ARGS in session SELF, synchronously."
+  "Execute script SCRIPT with arguments ARGS in session SELF, synchronously."
   (let* ((command (make-instance 'webdriver-command
                                  :method "POST"
                                  :name (format "session/%s/execute/sync"
@@ -826,7 +826,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
 
 (cl-defmethod webdriver-execute-asynchronous-script ((self webdriver-session)
                                                      script args)
-  "Execute the script SCRIPT with arguments ARGS in session SELF, asynchronously."
+  "Execute script SCRIPT with arguments ARGS in session SELF, asynchronously."
   (let* ((command (make-instance 'webdriver-command
                                  :method "POST"
                                  :name (format "session/%s/execute/async"
@@ -935,9 +935,11 @@ Calls `json-serialize' with SELF represented as a property list."
   "Append an action of subtype SUBTYPE with EXTRA parameters to SELF.
 
 SUBTYPE should be a symbol representing one of the supported action subtypes:
-pause, keyDown, keyUp, pointerDown, pointerUp, pointerMove, pointerCancel, scroll.
+pause, keyDown, keyUp, pointerDown, pointerUp, pointerMove, pointerCancel,
+scroll.
 
-EXTRA should be a property list with the parameters that the action to add needs."
+EXTRA should be a property list with the parameters that the action to add
+needs."
   (oset self actions
         (append (oref self actions) (append (list :type subtype) extra))))
 
@@ -1042,8 +1044,8 @@ PRINTOBJ is a plist with all the parameters to pass to the print command."
                                                (oref self id))
                                  :body printobj))
          (value (webdriver-send-command self command)))
-    value))                  
-         
+    value))
+
 ;; Webdriver Commands.
 (defclass webdriver-command nil
   ((name :initform ""
