@@ -68,6 +68,9 @@
 ;; Get Named Cookie
 ;; Add Cookie
 ;; Delete Cookie
+;; Delete All Cookies
+;; Perform Actions
+;; Release Actions
 ;; Dismiss Alert
 ;; Accept Alert
 ;; Get Alert Text
@@ -330,7 +333,7 @@ and VAL is the value of that property."
     (cl-mapcan (lambda (timeout prop)
                  (when (slot-value self prop)
                    (list timeout (* (slot-value self prop) 1000))))
-               timeouts props)))                 
+               timeouts props)))
 
 (cl-defmethod webdriver-json-serialize ((self webdriver-timeouts))
   "JSON-serialize SELF, a `webdriver-timeouts' object.
@@ -868,25 +871,84 @@ TYPE defaults to \"tab\"."
          (value (webdriver-send-command self command)))
     value))
 
+;; WebDriver Actions.
+(defclass webdriver-action-sequence nil
+  ((id :initform ""
+       :initarg :input-id
+       :type string
+       :documentation "ID of input source, a string.")
+   (type :initform none
+         :initarg :action-type
+         :type symbol
+         :documentation
+         "A symbol for the source type: one of none, key, pointer or wheel.")
+   (actions :initform nil
+            :type list
+            :documentation "A list that holds all actions to perform.")
+   (pointer-params :initform nil
+                   :type list
+                   :documentation
+                   "Extra pointer parameters to pass when type is pointer."))
+  "Represent a WebDriver input source.")
+
+(cl-defmethod webdriver-object-to-plist ((self webdriver-action-sequence))
+  "Represent SELF, a `webdriver-action-sequence' object, as a property list.
+
+The property list is as: (PROP VAL), where PROP is each property of SELF
+and VAL is the value of that property."
+  (let ((props '(:type :id :actions :parameters))
+        (slots '(id type actions pointer-params)))
+    (cl-mapcan (lambda (prop slot)
+                 (list prop (slot-value self prop))))))
+
+(cl-defmethod webdriver-json-serialize ((self webdriver-action-sequence))
+  "JSON-serialize SELF, a `webdriver-action-sequence' object.
+
+Calls `json-serialize' with SELF represented as a property list."
+  (json-serialize (webdriver-object-to-plist self)))
+
+(cl-defmethod webdriver-perform-actions ((self webdriver-session)
+                                         (actions webdriver-action-sequence))
+  "Perform the actions stored in slot actions of ACTIONS, in the session SELF."
+  (webdriver-perform-actions
+   (make-instance 'webdriver-actions
+                  :actions (webdriver-object-to-plist self))))
+
+(cl-defmethod webdriver-append-action ((self webdriver-action-sequence)
+                                       subtype extra)
+  "Append an action of subtype SUBTYPE with EXTRA parameters to SELF.
+
+SUBTYPE should be a symbol representing one of the supported action subtypes:
+pause, keyDown, keyUp, pointerDown, pointerUp, pointerMove, pointerCancel, scroll.
+
+EXTRA should be a property list with the parameters that the action to add needs."
+  (oset self actions
+        (append (oref self actions) (append (list :type subtype) extra))))
+
 (defclass webdriver-actions nil
-  ((actions :initform nil
-            :initarg :actions
-            :type list)))
+  ((actions
+    :initform nil
+    :initarg :actions
+    :type list
+    :documentation
+    "A property list representation of a `webdriver-action-sequence' object."))
+  "Holds a plist that represents a `webdriver-action-sequence' objects.")
 
 (cl-defmethod webdriver-perform-actions ((self webdriver-session)
                                          (actions webdriver-actions))
-  "Perform the actions ACTIONS in session SELF."
+  "Perform the actions stored in ACTIONS in session SELF."
   (let* ((comand (make-instance 'webdriver-command
                                 :method "POST"
                                 :name (format "session/%s/actions"
                                               (oref self id))
                                 :body (json-serialize
-                                       (list :actions (oref actions actions)))))
+                                       (list :actions
+                                             (oref actions actions)))))
          (value (webdriver-send-command self command)))
     value))
 
 (cl-defmethod webdriver-release-actions ((self webdriver-session))
-  "Release the actions in session SELF."
+  "Release all keys and pointer buttons currently depressed in session SELF."
   (let* ((command (make-instance 'webdriver-command
                                  :method "DELETE"
                                  :name (format "session/%s/actions"
