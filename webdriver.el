@@ -395,6 +395,33 @@ TIMEOUT should be a symbol, one of script, pageLoad or implicit."
     (error (format "Webdriver error (%s): %s"
                    "invalid timeout" ""))))
 
+;; A WebDriver rect.
+(defclass webdriver-rect nil
+  ((width :initarg :width
+          :initform nil
+          :type (or null number)
+          :documentation "Width for the rect, or null for a default value.")
+   (height :initarg :height
+           :initform nil
+           :type (or null number)
+           :documentation "Height for the rect, or null for a default value.")
+   (x :initarg :x
+      :initform nil
+      :type (or null number)
+      :documentation "X position for the rect, or null for a default value.")
+   (y :initarg :y
+      :initform nil
+      :type (or null number)
+      :documentation "Y position the rect, or null for a default value."))
+  "A rect class for use in window and element commands.")
+
+(cl-defmethod webdriver-json-serialize ((self webdriver-rect))
+  "JSON-Serialize SELF."
+  (json-serialize (list :width (oref self width)
+                        :height (oref self height)
+                        :x (oref self x)
+                        :y (oref self y))))
+
 ;; Window handles.
 (cl-defmethod webdriver-get-window-handle ((self webdriver-session))
   "Get the current window handle associated to the session SELF."
@@ -403,18 +430,22 @@ TIMEOUT should be a symbol, one of script, pageLoad or implicit."
                                  :name (format "session/%s/window"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-close-window ((self webdriver-session))
-  "Close the current window handle associated to the session SELF."
+  "Close the current window handle associated to the session SELF.
+
+If there are no more open top-level windows, stop SELF."
   (let* ((command (make-instance 'webdriver-command
                                  :method "DELETE"
                                  :name (format "session/%s/window"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
+    (webdriver-check-for-error value)
     ;; Close session when there are no more windows.
     (when (seq-empty-p value)
-      (webdriver-session-stop self))))
+      (webdriver-session-stop self))
+    value))
 
 (cl-defmethod webdriver-get-window-handles ((self webdriver-session))
   "Get all window handles associated to the session SELF."
@@ -423,12 +454,12 @@ TIMEOUT should be a symbol, one of script, pageLoad or implicit."
                                  :name (format "session/%s/window/handles"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-create-new-window ((self webdriver-session) type)
   "Create a new window handle of type TYPE for the session SELF.
 
-TYPE defaults to \"tab\"."
+TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
   (let* ((command (make-instance 'webdriver-command
                                  :method "POST"
                                  :name (format "session/%s/window/new"
@@ -436,7 +467,7 @@ TYPE defaults to \"tab\"."
                                  :body (json-serialize
                                         `(:type ,(or type "tab")))))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-get-window-rect ((self webdriver-session))
   "Get the window rectangle for the current window handle of the session SELF."
@@ -445,28 +476,12 @@ TYPE defaults to \"tab\"."
                                  :name (format "session/%s/window/rect"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    value))
-
-(defclass webdriver-rect nil
-  ((width :initarg :width
-          :initform 1280
-          :type number)
-   (height :initarg :height
-           :initform 947
-           :type number)
-   (x :initarg :x
-      :initform 98
-      :type number)
-   (y :initarg :y
-      :initform 54
-      :type number)))
-
-(cl-defmethod webdriver-json-serialize ((self webdriver-rect))
-  "JSON-Serialize SELF."
-  (json-serialize (list :width (oref self width)
-                        :height (oref self height)
-                        :x (oref self x)
-                        :y (oref self y))))
+    (webdriver-check-for-error value)
+    (make-instance 'webdriver-rect
+                   :width (alist-get 'width value)
+                   :height (alist-get 'height value)
+                   :x (alist-get 'x value)
+                   :y (alist-get 'y value))))
 
 (cl-defmethod webdriver-set-window-rect ((self webdriver-session)
                                          (rect webdriver-rect))
@@ -477,7 +492,7 @@ TYPE defaults to \"tab\"."
                                                (oref self id))
                                  :body (webdriver-json-serialize rect)))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-maximize-window ((self webdriver-session))
   "Maximize the current window associated to the session SELF."
@@ -486,7 +501,7 @@ TYPE defaults to \"tab\"."
                                  :name (format "session/%s/window/maximize"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-minimize-window ((self webdriver-session))
   "Minimize the current window associated to the session SELF."
@@ -495,7 +510,7 @@ TYPE defaults to \"tab\"."
                                  :name (format "session/%s/window/minimize"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-fullscreen-window ((self webdriver-session))
   "Fullscreen the current window associated to the session SELF."
@@ -504,7 +519,7 @@ TYPE defaults to \"tab\"."
                                  :name (format "session/%s/window/fullscreen"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-switch-to-frame ((self webdriver-session) id)
   "Switch to the frame ID in the session SELF."
@@ -514,7 +529,7 @@ TYPE defaults to \"tab\"."
                                                (oref self id))
                                  :body (json-serialize (list :id id))))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-switch-to-parent-frame ((self webdriver-session))
   "Switch to the parent frame in the session SELF."
@@ -523,8 +538,9 @@ TYPE defaults to \"tab\"."
                                  :name (format "session/%s/frame/parent"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
+;; WebDriver By strategies.
 (defclass webdriver-by nil
   ((strategy :initform ""
              :initarg :strategy
@@ -945,7 +961,7 @@ EXTRA should be a property list with the parameters that the action to add needs
                                        (list :actions
                                              (oref actions actions)))))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-release-actions ((self webdriver-session))
   "Release all keys and pointer buttons currently depressed in session SELF."
@@ -954,7 +970,7 @@ EXTRA should be a property list with the parameters that the action to add needs
                                  :name (format "session/%s/actions"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    value))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-dismiss-alert ((self webdriver-session))
   "Dismiss an alert in session SELF."
