@@ -46,10 +46,13 @@
 ;; Minimize Window
 ;; Fullscreen Window
 ;; Get Active Element
+;; Get Element Shadow Root
 ;; Find Element
 ;; Find Elements
 ;; Find Element From Element
 ;; Find Elemenets From Element
+;; Find Element From Shadow Root
+;; Find Elements From Shadow Root
 ;; Is Element Selected
 ;; Get Element Attribute
 ;; Get Element Property
@@ -611,22 +614,26 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
               (make-instance 'webdriver-element :reference (cdar el)))
             value)))
 
+;; WebDriver Shadow Root.
 (defclass webdriver-shadow nil
-  ((uuid :initform ""
-         :initarg :reference
-         :type string)))
+  ((id :initform ""
+       :initarg :reference
+       :type string
+       :documentation "The ID of the shadow root, as a string."))
+  "WebDriver Shadow Root.")
 
 (cl-defmethod webdriver-find-element-from-shadow-root ((self webdriver-session)
                                                        (shadow webdriver-shadow)
                                                        (by webdriver-by))
-  "Starting from the shadow root SHADOW, find an element by BY in session SELF."
+  "Starting from shadow root SHADOW, find an element by BY in session SELF."
   (let* ((command (make-instance 'webdriver-command
                                  :method "POST"
                                  :name (format "session/%s/shadow/%s/element"
                                                (oref self id)
-                                               (oref shadow uuid))
+                                               (oref shadow id))
                                  :body (webdriver-json-serialize by)))
          (value (webdriver-send-command self command)))
+    (webdriver-check-for-error value)
     (make-instance 'webdriver-element :reference (cdar value))))
 
 (cl-defmethod webdriver-find-elements-from-shadow-root
@@ -638,9 +645,10 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :method "POST"
                                  :name (format "session/%s/shadow/%s/elements"
                                                (oref self id)
-                                               (oref shadow uuid))
+                                               (oref shadow id))
                                  :body (webdriver-json-serialize by)))
          (value (webdriver-send-command self command)))
+    (webdriver-check-for-error value)
     (mapcar (lambda (el)
               (make-instance 'webdriver-element :reference (cdar el)))
             value)))
@@ -663,7 +671,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref self id)
                                                (oref element uuid))))
          (value (webdriver-send-command self command)))
-    ;; TODO: Handle errors.
+    (webdriver-check-for-errors value)
     (make-instance 'webdriver-shadow :reference (cdar value))))
 
 (cl-defmethod webdriver-element-selected-p ((self webdriver-session)
