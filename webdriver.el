@@ -82,6 +82,22 @@
 ;; Take Element Screenshot
 
 ;;; Code:
+;; Variables and Options.
+(defgroup webdriver nil "WebDriver options."
+  :group 'tools
+  :version "0.1")
+
+(defcustom webdriver-default-service 'webdriver-service-firefox
+  "The default service to use when creating a session.
+
+When creating a `webdriver-session' object without a specified service,
+a service of this class will be instantiated when executing
+`webdriver-sessions-start'.
+
+Its value should be a symbol, a class name for a `webdriver-service'."
+  :type 'symbol
+  :package-version "0.1")
+
 ;; Utils.
 (defun webdriver--get-free-port ()
   "Return a free port on localhost, as an integer."
@@ -111,26 +127,34 @@ If it is, then signal an error.  If it is not, return VALUE."
 (defclass webdriver-service nil
   ((executable
     :initarg :executable
-    :type string)
+    :type string
+    :documentation "The executable to run for this service.")
    (port
     :initarg :port
     :initform nil
-    :type (or boolean integer))
+    :type (or boolean integer)
+    :documentation
+    "Port to connect to, usually passed as a command-line argument.")
    (log
     :initarg :log
     :initform nil
-    :type (or boolean string buffer))
+    :type (or boolean string buffer)
+    :documentation "Buffer to use when logging information.")
    (buffer
     :initarg :buffer
     :initform nil
-    :type (or boolean string buffer))
+    :type (or boolean string buffer)
+    :documentation "Buffer to use for I/O with the process.")
    (process
     :initform nil
-    :type (or boolean process))
+    :type (or boolean process)
+    :documentation "Process for this service.")
    (args
     :initarg :args
     :initform nil
-    :type list)))
+    :type list
+    :documentation "Arguments to pass to executable."))
+  "A WebDriver service abstraction, for running the remote ends.")
 
 (cl-defmethod webdriver-service-start ((self webdriver-service)
                                        &optional retries)
@@ -200,18 +224,24 @@ Stops the process stored in `process', and sets it to nil."
 
 (cl-defmethod webdriver-service-url ((self webdriver-service))
   "Return the URL where the process associated to SELF is listening."
+  ;; FIXME: Obviously 0 won't work.
   (format "http://localhost:%d" (or (oref self port) 0)))
 
 ;; Firefox Service.
 (defclass webdriver-service-firefox (webdriver-service)
   ((executable
-    :initform "geckodriver")
+    :initform "geckodriver"
+    :documentation "Executable when running a Firefox Service.
+This is usually \"geckodriver\", and it should be in `executable-path'.")
    (port
-    :initform 4444)))
+    :initform 4444
+    :documentation "Port to pass as an option to geckodriver.
+By default, it is 4444, which is the default for geckodriver."))
+  "The Firefox Service, that runs the geckodriver.")
 
 (cl-defmethod webdriver-service-start :before
   ((self webdriver-service-firefox) &optional retries)
-  "Add a port argument to the command line."
+  "Add the port argument to the command line."
   (oset self args (list "--port" (number-to-string (oref self port)))))
 
 ;; WebDriver Session.
@@ -240,7 +270,7 @@ Stops the process stored in `process', and sets it to nil."
 (cl-defmethod initialize-instance :after ((self webdriver-session) &rest _args)
   "If there is no service associated with SELF, create a default one."
   (unless (oref self service)
-    (let ((service (make-instance 'webdriver-service-firefox)))
+    (let ((service (make-instance webdriver-default-service)))
       (webdriver-service-start service)
       (oset self service service))))
 
