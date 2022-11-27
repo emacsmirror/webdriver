@@ -2,8 +2,15 @@
 
 ;; Copyright (C) 2022  Mauro Aranda
 
-;; Author: Mauro Aranda <mauro@maurooaranda.com>
+;; Author: Mauro Aranda <maurooaranda@gmail.com>
+;; Maintainer: Mauro Aranda <maurooaranda@gmail.com>
+;; Created: Wed Nov 23 10:24:00 2022
+;; Version: 0.1
+;; Package-Version: 0.1
+;; Package-Requires: ((emacs "25.1"))
 ;; Keywords: tools
+
+;; This file is NOT part of GNU Emacs.
 
 ;; webdriver is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -20,66 +27,84 @@
 
 ;;; Commentary:
 
+;; This package implements a W3C WebDriver compatible client,
+;; a local end, in ELisp.
+
 ;; See the specification in https://www.w3.org/TR/webdriver/
 
-;; List of Endpoints supported, by Command Name:
-;; New Session
-;; Delete Session
-;; Get Timeouts
-;; Set Timeouts
-;; Navigate To
-;; Get Current Url
-;; Back
-;; Forward
-;; Refresh
-;; Get Title
-;; Get Window Handle
-;; Close Window
-;; Switch to Window
-;; Get Window Handles
-;; New Window
-;; Switch To Frame
-;; Switch To Parent Frame
-;; Get Window Rect
-;; Set Window Rect
-;; Maximize Window
-;; Minimize Window
-;; Fullscreen Window
-;; Get Active Element
-;; Get Element Shadow Root
-;; Find Element
-;; Find Elements
-;; Find Element From Element
-;; Find Elemenets From Element
-;; Find Element From Shadow Root
-;; Find Elements From Shadow Root
-;; Is Element Selected
-;; Get Element Attribute
-;; Get Element Property
-;; Get Element CSS Value
-;; Get Element Text
-;; Get Element Tag Name
-;; Get Element Rect
-;; Is Element Enabled
-;; Element Click
-;; Element Clear
-;; Element Send Keys
-;; Get Page Source
-;; Execute Script
-;; Execute Async Script
-;; Get All Cookies
-;; Get Named Cookie
-;; Add Cookie
-;; Delete Cookie
-;; Delete All Cookies
-;; Perform Actions
-;; Release Actions
-;; Dismiss Alert
-;; Accept Alert
-;; Get Alert Text
-;; Send Alert Text
-;; Take Screenshot
-;; Take Element Screenshot
+;; This means you can remotely control any web browser that implements the
+;; server side of the protocol linked above.
+
+;; To start controlling a remote browser, you can:
+;; - Create an instance of `webdriver-session' and run
+;; `webdriver-session-start'.  This will use the value stored in
+;; `webdriver-default-service' to start running a compatible service.
+;; - Alternatively, you can create a custom instance of `webdriver-service'
+;; and pass it as a :service argument when creating an instance of
+;; `webdriver-session'.
+
+;; See the list of endpoints supported with the corresponding ELisp function
+;; to see the things you can do.
+
+;; List of Endpoints supported:
+;; Command Name -> ELisp function
+;; New Session -> `webdriver-session-start'
+;; Delete Session -> `webdriver-session-stop'
+;; Get Timeouts -> `webdriver-get-timeouts'
+;; Set Timeouts -> `webdriver-set-timeouts'
+;; Navigate To -> `webdriver-goto-url'
+;; Get Current Url -> `webdriver-get-current-url'
+;; Back -> `webdriver-go-back'
+;; Forward -> `webdriver-go-forward'
+;; Refresh -> `webdriver-refresh'
+;; Get Title -> `webdriver-get-title'
+;; Get Window Handle -> `webdriver-get-window-handle'
+;; Close Window -> `webdriver-close-window'
+;; Switch to Window -> `webdriver-switch-to-window'
+;; Get Window Handles -> `webdriver-get-window-handles'
+;; New Window -> `webdriver-create-new-window'
+;; Switch To Frame -> `webdriver-switch-to-frame'
+;; Switch To Parent Frame -> `webdriver-switch-to-parent-frame'
+;; Get Window Rect -> `webdriver-get-window-rect'
+;; Set Window Rect -> `webdriver-set-window-rect'
+;; Maximize Window -> `webdriver-maximize-window'
+;; Minimize Window -> `webdriver-minimize-window'
+;; Fullscreen Window -> `webdriver-fullscreen-window'
+;; Get Active Element -> `webdriver-get-active-element'
+;; Get Element Shadow Root -> `webdriver-get-element-shadow-root'
+;; Find Element -> `webdriver-find-element'
+;; Find Elements -> `webdriver-find-elements'
+;; Find Element From Element -> `webdriver-find-element-from-element'
+;; Find Elemenets From Element -> `webdriver-find-elements-from-element'
+;; Find Element From Shadow Root -> `webdriver-find-element-from-shadow-root'
+;; Find Elements From Shadow Root -> `webdriver-find-elements-from-shadow-root'
+;; Is Element Selected -> `webdriver-element-selected-p'
+;; Get Element Attribute -> `webdriver-get-element-attribute'
+;; Get Element Property -> `webdriver-get-element-property'
+;; Get Element CSS Value -> `webdriver-get-element-css-value'
+;; Get Element Text -> `webdriver-get-element-text'
+;; Get Element Tag Name -> `webdriver-get-element-tag-name'
+;; Get Element Rect -> `webdriver-get-element-rect'
+;; Is Element Enabled -> `webdriver-element-enabled-p'
+;; Element Click -> `webdriver-element-click'
+;; Element Clear -> `webdriver-element-clear'
+;; Element Send Keys -> `webdriver-element-send-keys'
+;; Get Page Source -> `webdriver-get-page-source'
+;; Execute Script -> `webdriver-execute-synchronous-script'
+;; Execute Async Script -> `webdriver-execute-asynchronous-script'
+;; Get All Cookies -> `webdriver-get-all-cookies'
+;; Get Named Cookie -> `webdriver-get-cookie'
+;; Add Cookie -> `webdriver-add-cookie'
+;; Delete Cookie -> `webdriver-delete-cookie'
+;; Delete All Cookies -> `webdriver-delete-all-cookies'
+;; Perform Actions -> `webdriver-perform-actions'
+;; Release Actions -> `webdriver-release-actions'
+;; Dismiss Alert -> `webdriver-dismiss-alert'
+;; Accept Alert -> `webdriver-accept-alert'
+;; Get Alert Text -> `webdriver-get-alert-text'
+;; Send Alert Text -> `webdriver-send-alert-text'
+;; Take Screenshot -> `webdriver-take-screenshot'
+;; Take Element Screenshot -> `webdriver-take-element-screenshot'
 
 ;;; Code:
 ;; Variables and Options.
@@ -525,6 +550,16 @@ If there are no more open top-level windows, stop SELF."
     (when (seq-empty-p value)
       (webdriver-session-stop self))
     value))
+
+(cl-defmethod webdriver-switch-to-window ((self webdriver-session) handle)
+  "Switch to the window with handle HANDLE in session SELF."
+  (let* ((command (make-instance 'webdriver-command
+                                 :method "POST"
+                                 :name (format "session/%s/window"
+                                               (oref self id))
+                                 :body (list :handle handle)))
+         (value (webdriver-send-command self command)))
+    (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-get-window-handles ((self webdriver-session))
   "Get all window handles associated to the session SELF."
