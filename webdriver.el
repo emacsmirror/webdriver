@@ -106,6 +106,17 @@
 ;; Take Screenshot -> `webdriver-take-screenshot'
 ;; Take Element Screenshot -> `webdriver-take-element-screenshot'
 
+;; Here is a usage example:
+;; (let ((session (make-instance 'webdriver-session)))
+;;   (webdriver-session-start session)
+;;   (webdriver-goto-url session "https://www.example.org")
+;;   (let ((element
+;;          (webdriver-find-element session (make-instance 'webdriver-by
+;;                                                         :strategy "tag name"
+;;                                                         :selector "h1"))))
+;;     (message (webdriver-get-element-text session element)))
+;;   (webdriver-session-stop session))
+
 ;;; Code:
 ;; Variables and Options.
 (defgroup webdriver nil "WebDriver options."
@@ -356,8 +367,7 @@ Serializes the body of COMMAND only if it is not a string."
                   (goto-char (point-min))
                   (re-search-forward "\n\n")
                   (json-read))))
-    (prog1 (or (alist-get 'value value)
-               value)
+    (prog1 value
       (kill-buffer buffer))))
 
 ;; Navigation.
@@ -863,7 +873,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref self id)
                                                (oref element id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-get-element-tag-name ((self webdriver-session)
                                               (element webdriver-element))
