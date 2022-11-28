@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2022  Mauro Aranda
 
-;; Author: Mauro Aranda <mauro@maurooaranda.com>
+;; Author: Mauro Aranda <maurooaranda@gmail.com>
 ;; Keywords: 
 
 ;; webdriver is free software; you can redistribute it and/or modify
