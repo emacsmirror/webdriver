@@ -14,8 +14,8 @@
 
 Here is a usage example:
 
-
-`(let ((session (make-instance 'webdriver-session)))
+```
+(let ((session (make-instance 'webdriver-session)))
   (webdriver-session-start session)
   (webdriver-goto-url session "https://www.example.org")
   (let ((element
@@ -23,7 +23,8 @@ Here is a usage example:
                                                         :strategy "tag name"
                                                         :selector "h1"))))
     (message (webdriver-get-element-text session element)))
-  (webdriver-session-stop session))`
+  (webdriver-session-stop session))
+```
 
 ---
 
