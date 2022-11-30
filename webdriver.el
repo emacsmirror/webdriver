@@ -394,7 +394,8 @@ Serializes the body of COMMAND only if it is not a string."
                                  :name (format "session/%s/url"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-go-back ((self webdriver-session))
   "Go back to the previous url of the session SELF."
@@ -430,7 +431,8 @@ Serializes the body of COMMAND only if it is not a string."
                                  :name (format "session/%s/title"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 ;; WebDriver Timeouts.
 (defclass webdriver-timeouts nil
@@ -552,7 +554,8 @@ TIMEOUT should be a symbol, one of script, pageLoad or implicit."
                                  :name (format "session/%s/window"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-close-window ((self webdriver-session))
   "Close the current window handle associated to the session SELF.
@@ -587,7 +590,8 @@ If there are no more open top-level windows, stop SELF."
                                  :name (format "session/%s/window/handles"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-create-new-window ((self webdriver-session) type)
   "Create a new window handle of type TYPE for the session SELF.
@@ -600,7 +604,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :body (json-serialize
                                         `(:type ,(or type "tab")))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-get-window-rect ((self webdriver-session))
   "Get the window rectangle for the current window handle of the session SELF."
@@ -854,7 +859,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                          (oref element id)
                                          attr)))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-get-element-property ((self webdriver-session)
                                               (element webdriver-element)
@@ -868,7 +874,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                          (oref element id)
                                          prop)))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-get-element-css-value ((self webdriver-session)
                                                (element webdriver-element)
@@ -881,7 +888,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref element id)
                                                css-value)))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-get-element-text ((self webdriver-session)
                                           (element webdriver-element))
@@ -904,7 +912,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref self id)
                                                (oref element id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-get-element-rect ((self webdriver-session)
                                           (element webdriver-element))
@@ -980,7 +989,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :name (format "session/%s/source"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-execute-synchronous-script ((self webdriver-session)
                                                     script args)
@@ -1014,7 +1024,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :name (format "session/%s/cookie"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-get-cookie ((self webdriver-session)
                                     name)
@@ -1025,7 +1036,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref self id)
                                                name)))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-add-cookie ((self webdriver-session)
                                     cookie)
@@ -1171,7 +1183,8 @@ needs."
                                  :name (format "session/%s/alert/text"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-send-alert-text ((self webdriver-session)
                                          text)
@@ -1192,7 +1205,8 @@ needs."
                                  :name (format "session/%s/screenshot"
                                                (oref self id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-take-element-screenshot ((self webdriver-session)
                                                  (element webdriver-element))
@@ -1204,7 +1218,8 @@ needs."
                                         (oref self id)
                                         (oref element id))))
          (value (webdriver-send-command self command)))
-    (webdriver-check-for-error value)))
+    (webdriver-check-for-error value)
+    (alist-get 'value value)))
 
 (cl-defmethod webdriver-print-page ((self webdriver-session)
                                     printobj)
