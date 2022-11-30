@@ -154,9 +154,10 @@ Its value should be a symbol, a class name for a `webdriver-service'."
   "Check if VALUE, the JSON response from the webdriver, is an error value.
 
 If it is, then signal an error.  If it is not, return VALUE."
-  (if (alist-get 'error value)
+  (let ((val (alist-get 'value value)))
+    (when (and (listp val) (alist-get 'error val))
       (error (format "Webdriver error (%s): %s"
-                     (alist-get 'error value) (alist-get 'message value)))
+                     (alist-get 'error val) (alist-get 'message val))))
     value))
 
 ;; WebDriver Service.
@@ -364,9 +365,14 @@ Serializes the body of COMMAND only if it is not a string."
          (buffer (url-retrieve-synchronously
                   (concat (webdriver-service-url (oref self service))
                           "/" (oref command name))))
-         (value (with-current-buffer buffer
+         (text (with-current-buffer buffer
+                 (goto-char (point-min))
+                 (re-search-forward "\n\n")
+                 (decode-coding-string (buffer-substring (point) (point-max))
+                                       'utf-8)))
+         (value (with-temp-buffer
+                  (insert text)
                   (goto-char (point-min))
-                  (re-search-forward "\n\n")
                   (json-read))))
     (prog1 value
       (kill-buffer buffer))))
@@ -704,6 +710,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :body (webdriver-json-serialize by)))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (make-instance 'webdriver-element :reference (cdar value))))
 
 (cl-defmethod webdriver-find-elements ((self webdriver-session)
@@ -716,6 +723,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :body (webdriver-json-serialize by)))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    
+    (setq value (alist-get 'value value))
     (mapcar (lambda (el)
               (make-instance 'webdriver-element :reference (cdar el)))
             value)))
