@@ -117,6 +117,13 @@
 ;;     (message (webdriver-get-element-text session element)))
 ;;   (webdriver-session-stop session))
 
+;; Currently, there is not great support for constructing a
+;; requested capabilities object to pass to the New Session command.
+;; For example, if you want to request a headless Firefox session, use:
+;; (make-instance 'webdriver-session
+;;                :requested-capabilities
+;;                '(:alwaysMatch (:moz:firefoxOptions (:args ["-headless"]))))
+
 ;;; Code:
 ;; Variables and Options.
 (defgroup webdriver nil "WebDriver options."
