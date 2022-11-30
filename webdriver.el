@@ -472,6 +472,7 @@ Returns a `webdriver-timeouts' object with the current timeout specification."
                                                (oref self id))))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (make-instance 'webdriver-timeouts
                    :script (/ (alist-get 'script value) 1000)
                    :pageLoad (/ (alist-get 'pageLoad value) 1000)
@@ -563,6 +564,7 @@ If there are no more open top-level windows, stop SELF."
                                                (oref self id))))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     ;; Close session when there are no more windows.
     (when (seq-empty-p value)
       (webdriver-session-stop self))
@@ -608,6 +610,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref self id))))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (make-instance 'webdriver-rect
                    :width (alist-get 'width value)
                    :height (alist-get 'height value)
@@ -723,7 +726,6 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :body (webdriver-json-serialize by)))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
-    
     (setq value (alist-get 'value value))
     (mapcar (lambda (el)
               (make-instance 'webdriver-element :reference (cdar el)))
@@ -741,6 +743,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :body (webdriver-json-serialize by)))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (make-instance 'webdriver-element :reference (cdar value))))
 
 (cl-defmethod webdriver-find-elements-from-element ((self webdriver-session)
@@ -755,6 +758,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :body (webdriver-json-serialize by)))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (mapcar (lambda (el)
               (make-instance 'webdriver-element :reference (cdar el)))
             value)))
@@ -779,6 +783,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :body (webdriver-json-serialize by)))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (make-instance 'webdriver-element :reference (cdar value))))
 
 (cl-defmethod webdriver-find-elements-from-shadow-root
@@ -794,6 +799,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                  :body (webdriver-json-serialize by)))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (mapcar (lambda (el)
               (make-instance 'webdriver-element :reference (cdar el)))
             value)))
@@ -806,6 +812,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref self id))))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (make-instance 'webdriver-element :reference (cdar value))))
 
 (cl-defmethod webdriver-get-element-shadow-root ((self webdriver-session)
@@ -818,6 +825,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref element id))))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (make-instance 'webdriver-shadow :reference (cdar value))))
 
 (cl-defmethod webdriver-element-selected-p ((self webdriver-session)
@@ -830,6 +838,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref element id))))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (cond ((eq value json-false) nil)
           (t t))))
 
@@ -907,6 +916,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref element id))))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (make-instance 'webdriver-rect
                    :x (alist-get 'x value)
                    :y (alist-get 'y value)
@@ -923,6 +933,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                                (oref element id))))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (cond ((eq value json-false) nil)
           (t t))))
 
