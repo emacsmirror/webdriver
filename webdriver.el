@@ -321,6 +321,7 @@ By default, it is 4444, which is the default for geckodriver."))
                                          ,(oref self requested-capabilities))))
          (value (webdriver-send-command self command)))
     (webdriver-check-for-error value)
+    (setq value (alist-get 'value value))
     (oset self id (alist-get 'sessionId value))
     (oset self capabilities (alist-get 'capabilities value))))
 
