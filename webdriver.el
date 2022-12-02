@@ -202,7 +202,7 @@ If it is, then signal an error.  If it is not, return VALUE."
 
 (cl-defmethod webdriver-service-start ((self webdriver-service)
                                        &optional retries)
-    "Start a new service described by SELF.
+  "Start a new service described by SELF.
 
 This starts a new process which runs `executable' and connects it via a pipe.
 
@@ -243,7 +243,7 @@ to connect to the server before giving up."
           (insert "Started executable correctly")))))))
 
 (cl-defmethod webdriver-service-stop ((self webdriver-service))
-    "Stop the service described by SELF.
+  "Stop the service described by SELF.
 
 Stops the process stored in `process', and sets it to nil."
   (when (and (oref self log) (buffer-live-p (oref self log)))
@@ -365,7 +365,7 @@ Returns the value returned by the driver, unless there are errors."
                              :name name
                              :method method
                              :body body))
-          (value (webdriver-send-command session cmd)))
+         (value (webdriver-send-command session cmd)))
     (webdriver-check-for-error value)))
 
 (cl-defmethod webdriver-send-command ((self webdriver-session)
@@ -740,8 +740,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
   (let ((value (alist-get 'value
                           (webdriver-execute-command
                            self (format "session/%s/element/%s/shadow"
-                                               (oref self id)
-                                               (oref element id))
+                                        (oref self id)
+                                        (oref element id))
                            "GET"))))
     (make-instance 'webdriver-shadow :reference (cdar value))))
 
