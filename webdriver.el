@@ -394,39 +394,33 @@ Serializes the body of COMMAND only if it is not a string."
 (cl-defmethod webdriver-goto-url ((self webdriver-session) url)
   "Navigate to the url URL in session SELF."
   (webdriver-execute-command self (format "session/%s/url" (oref self id))
-                             "POST"
-                             `(:url ,url)))
+                             "POST" `(:url ,url)))
   
 (cl-defmethod webdriver-get-current-url ((self webdriver-session))
   "Return the current url of the session SELF."
   (alist-get 'value (webdriver-execute-command
-                     self
-                     (format "session/%s/url" (oref self id))
-                     "GET")))
+                     self (format "session/%s/url" (oref self id)) "GET")))
 
 (cl-defmethod webdriver-go-back ((self webdriver-session))
   "Go back to the previous url of the session SELF."
-  (webdriver-execute-command self
-                             (format "session/%s/back" (oref self id))
+  (webdriver-execute-command self (format "session/%s/back" (oref self id))
                              "POST"))
 
 (cl-defmethod webdriver-go-forward ((self webdriver-session))
   "Go forward to the next url of the session SELF."
-  (webdriver-execute-command self
-                             (format "session/%s/forward" (oref self id))
+  (webdriver-execute-command self (format "session/%s/forward" (oref self id))
                              "POST"))
 
 (cl-defmethod webdriver-refresh ((self webdriver-session))
   "Refresh the current url of the session SELF."
-  (webdriver-execute-command self
-                             (format "session/%s/refresh" (oref self id))
+  (webdriver-execute-command self (format "session/%s/refresh" (oref self id))
                              "POST"))
 
 (cl-defmethod webdriver-get-title ((self webdriver-session))
   "Get the title of the current page visited by SELF."
-  (alist-get 'value (webdriver-execute-command self
-                             (format "session/%s/title" (oref self id))
-                             "GET")))
+  (alist-get 'value (webdriver-execute-command self (format "session/%s/title"
+                                                            (oref self id))
+                                               "GET")))
 
 ;; WebDriver Timeouts.
 (defclass webdriver-timeouts nil
@@ -463,9 +457,8 @@ Calls `json-serialize' with SELF represented as a property list."
 
 Returns a `webdriver-timeouts' object with the current timeout specification."
   (let ((value (alist-get 'value (webdriver-execute-command
-                                  self
-                                  (format "session/%s/timeouts"
-                                          (oref self id))
+                                  self (format "session/%s/timeouts"
+                                               (oref self id))
                                   "GET"))))
     (make-instance 'webdriver-timeouts
                    :script (/ (alist-get 'script value) 1000)
@@ -487,21 +480,18 @@ TIMEOUT should be a symbol, one of script, pageLoad or implicit."
 (cl-defmethod webdriver-set-timeouts ((self webdriver-session)
                                       (timeouts webdriver-timeouts))
   "Set the timeouts specification for the session SELF."
-  (webdriver-execute-command self
-                             (format "session/%s/timeouts" (oref self id))
-                             "POST"
-                             (webdriver-json-serialize timeouts)))
+  (webdriver-execute-command self (format "session/%s/timeouts" (oref self id))
+                             "POST" (webdriver-json-serialize timeouts)))
 
 (cl-defmethod webdriver-set-timeout ((self webdriver-session) timeout secs)
   "Set timeout TIMEOUT to value SECS times 1000 in session SELF.
 
 TIMEOUT should be a symbol, one of script, pageLoad or implicit."
   (if (member timeout '(script pageLoad implicit))
-      (webdriver-execute-command self
-                                 (format "session/%s/timeouts" (oref self id))
-                                 "POST"
-                                 (list (intern (format ":%s" timeout))
-                                       (* secs 1000)))
+      (webdriver-execute-command self (format "session/%s/timeouts"
+                                              (oref self id))
+                                 "POST" (list (intern (format ":%s" timeout))
+                                              (* secs 1000)))
     (error (format "Webdriver error (%s): %s"
                    "invalid timeout" ""))))
 
@@ -535,21 +525,20 @@ TIMEOUT should be a symbol, one of script, pageLoad or implicit."
 ;; Window handles.
 (cl-defmethod webdriver-get-window-handle ((self webdriver-session))
   "Get the current window handle associated to the session SELF."
-  (alist-get 'value (webdriver-execute-command self
-                                               (format "session/%s/window"
-                                                       (oref self id))
-                                               "GET")))
+  (alist-get 'value
+             (webdriver-execute-command self (format "session/%s/window"
+                                                     (oref self id))
+                                        "GET")))
 
 (cl-defmethod webdriver-close-window ((self webdriver-session))
   "Close the current window handle associated to the session SELF.
 
 If there are no more open top-level windows, stop SELF."
-  (let ((value (alist-get 'value
-                          (webdriver-execute-command
-                           self
-                           (format "session/%s/window"
-                                   (oref self id))
-                           "DELETE"))))
+  (let ((value
+         (alist-get 'value (webdriver-execute-command
+                            self
+                            (format "session/%s/window" (oref self id))
+                            "DELETE"))))
     ;; Close the session when there are no more windows.
     (when (seq-empty-p value)
       (webdriver-session-stop self))
@@ -593,28 +582,24 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
   "Set rectangle to RECT for the current window handle of session SELF."
   (webdriver-execute-command self
                              (format "session/%s/window/rect" (oref self id))
-                             "POST"
-                             (webdriver-json-serialize rect)))
+                             "POST" (webdriver-json-serialize rect)))
 
 (cl-defmethod webdriver-maximize-window ((self webdriver-session))
   "Maximize the current window associated to the session SELF."
-  (webdriver-execute-command self
-                             (format "session/%s/window/maximize"
-                                     (oref self id))
+  (webdriver-execute-command self (format "session/%s/window/maximize"
+                                          (oref self id))
                              "POST"))
 
 (cl-defmethod webdriver-minimize-window ((self webdriver-session))
   "Minimize the current window associated to the session SELF."
-  (webdriver-execute-command self
-                             (format "session/%s/window/minimize"
-                                     (oref self id))
+  (webdriver-execute-command self (format "session/%s/window/minimize"
+                                          (oref self id))
                              "POST"))
 
 (cl-defmethod webdriver-fullscreen-window ((self webdriver-session))
   "Fullscreen the current window associated to the session SELF."
-  (webdriver-execute-command self
-                             (format "session/%s/window/fullscreen"
-                                     (oref self id))
+  (webdriver-execute-command self (format "session/%s/window/fullscreen"
+                                          (oref self id))
                              "POST"))
 
 (cl-defmethod webdriver-switch-to-frame ((self webdriver-session) id)
@@ -624,8 +609,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
 
 (cl-defmethod webdriver-switch-to-parent-frame ((self webdriver-session))
   "Switch to the parent frame in the session SELF."
-  (webdriver-execute-command self
-                             (format "session/%s/frame/parent" (oref self id))
+  (webdriver-execute-command self (format "session/%s/frame/parent"
+                                          (oref self id))
                              "POST"))
 
 ;; WebDriver By strategies.
@@ -1004,14 +989,14 @@ needs."
 ;; WebDriver Alerts.
 (cl-defmethod webdriver-dismiss-alert ((self webdriver-session))
   "Dismiss an alert in session SELF."
-  (webdriver-execute-command self
-                             (format "session/%s/alert/dismiss" (oref self id))
+  (webdriver-execute-command self (format "session/%s/alert/dismiss"
+                                          (oref self id))
                              "POST"))
 
 (cl-defmethod webdriver-accept-alert ((self webdriver-session))
   "Accept an alert in session SELF."
-  (webdriver-execute-command self
-                             (format "session/%s/alert/accept" (oref self id))
+  (webdriver-execute-command self (format "session/%s/alert/accept"
+                                          (oref self id))
                              "POST"))
 
 (cl-defmethod webdriver-get-alert-text ((self webdriver-session))
