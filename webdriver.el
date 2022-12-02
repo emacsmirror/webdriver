@@ -353,12 +353,14 @@ By default, it is 4444, which is the default for geckodriver."))
   "Abstraction of a WebDriver command.")
 
 (defun webdriver-execute-command (session name method &optional body)
-  "Execute command COMMAND with body BODY in session SESSION, checking for errors.
+  "Execute command NAME with body BODY in session SESSION.
 
 SESSION should be an instance of `webdriver-session'.
 NAME should be the name of the command.  METHOD should be the method to use.
 
-BODY should be in a form acceptable for the body slot of a command."
+BODY should be in a form acceptable for the body slot of a command.
+
+Returns the value returned by the driver, unless there are errors."
   (let* ((cmd (make-instance 'webdriver-command
                              :name name
                              :method method
@@ -395,7 +397,7 @@ Serializes the body of COMMAND only if it is not a string."
   "Navigate to the url URL in session SELF."
   (webdriver-execute-command self (format "session/%s/url" (oref self id))
                              "POST" `(:url ,url)))
-  
+
 (cl-defmethod webdriver-get-current-url ((self webdriver-session))
   "Return the current url of the session SELF."
   (alist-get 'value (webdriver-execute-command
