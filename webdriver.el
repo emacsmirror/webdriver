@@ -288,7 +288,7 @@ By default, it is 4444, which is the default for geckodriver."))
   "The Firefox Service, that runs the geckodriver.")
 
 (cl-defmethod webdriver-service-start :before
-  ((self webdriver-service-firefox) &optional retries)
+  ((self webdriver-service-firefox) &optional _retries)
   "Add the port argument to the command line."
   (oset self args (list "--port" (number-to-string (oref self port)))))
 
@@ -371,6 +371,9 @@ Returns the value returned by the driver, unless there are errors."
                              :body body))
          (value (webdriver-send-command session cmd)))
     (webdriver-check-for-error value)))
+
+(defvar url-request-method)
+(defvar url-request-data)
 
 (cl-defmethod webdriver-send-command ((self webdriver-session)
                                       (command webdriver-command))
@@ -734,8 +737,8 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
   (let ((value (alist-get 'value
                           (webdriver-execute-command
                            self (format "session/%s/element/active"
-                                        (oref self id)))
-                          "GET")))
+                                        (oref self id))
+                           "GET"))))
     (make-instance 'webdriver-element :reference (cdar value))))
 
 (cl-defmethod webdriver-get-element-shadow-root ((self webdriver-session)
@@ -921,7 +924,7 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
        :initarg :input-id
        :type string
        :documentation "ID of input source, a string.")
-   (type :initform none
+   (type :initform 'none
          :initarg :action-type
          :type symbol
          :documentation
@@ -942,8 +945,9 @@ The property list is as: (PROP VAL), where PROP is each property of SELF
 and VAL is the value of that property."
   (let ((props '(:type :id :actions :parameters))
         (slots '(id type actions pointer-params)))
-    (cl-mapcan (lambda (prop slot)
-                 (list prop (slot-value self prop))))))
+    (cl-mapcan (lambda (prop _slot)
+                 (list prop (slot-value self prop)))
+               props slots)))
 
 (cl-defmethod webdriver-json-serialize ((self webdriver-action-sequence))
   "JSON-serialize SELF, a `webdriver-action-sequence' object.
@@ -955,8 +959,8 @@ Calls `json-serialize' with SELF represented as a property list."
                                          (actions webdriver-action-sequence))
   "Perform the actions stored in slot actions of ACTIONS, in the session SELF."
   (webdriver-perform-actions
-   (make-instance 'webdriver-actions
-                  :actions (webdriver-object-to-plist self))))
+   self (make-instance 'webdriver-actions
+                       :actions (webdriver-object-to-plist actions))))
 
 (cl-defmethod webdriver-append-action ((self webdriver-action-sequence)
                                        subtype extra)
