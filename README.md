@@ -28,6 +28,24 @@ Here is a usage example:
 
 ---
 
+Here is another, taken from the Firefox docs:
+```
+(require 'webdriver)
+(let ((session (make-instance 'webdriver-session))
+      element results)
+  (webdriver-session-start session)
+  (webdriver-goto-url session "https://www.google.com/ncr")
+  (setq element (webdriver-find-element session (make-instance
+                                                 'webdriver-by
+                                                 :strategy "tag name"
+                                                 :selector "input")))
+  (webdriver-send-keys session element "cheese\ue006")
+  (setq results (webdriver-find-elements session (make-instance
+                                                  'webdriver-by
+                                                  :strategy "css selector"
+                                                  :selector "h3")))
+  (message (webdriver-get-element-text session (nth 0 results))))
+```
 ## Installation
 
 Download the webdriver.el file, byte-compile it and add the directory
