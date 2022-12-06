@@ -381,9 +381,11 @@ Returns the value returned by the driver, unless there are errors."
 
 Serializes the body of COMMAND only if it is not a string."
   (let* ((url-request-method (oref command method))
-         (url-request-data (if (stringp (oref command body))
-                               (oref command body)
-                             (json-serialize (oref command body))))
+         (url-request-data (encode-coding-string
+			    (if (stringp (oref command body))
+				(oref command body)
+                              (json-serialize (oref command body)))
+			    'utf-8))
          (buffer (url-retrieve-synchronously
                   (concat (webdriver-service-url (oref self service))
                           "/" (oref command name))))
