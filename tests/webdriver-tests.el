@@ -3,7 +3,6 @@
 ;; Copyright (C) 2022  Mauro Aranda
 
 ;; Author: Mauro Aranda <maurooaranda@gmail.com>
-;; Keywords: 
 
 ;; webdriver is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -32,11 +31,12 @@
 
 (defmacro webdriver-test-with-session (&rest body)
   "Execute BODY wrapped around a session start and session stop logic."
-  `(let ((webdriver-test-session (make-instance 'webdriver-session
-                                                :service webdriver-test-service
-                                                :requested-capabilities
-                                                '(:alwaysMatch (:moz:firefoxOptions
-                                                                (:args ["-headless"]))))))
+  `(let ((webdriver-test-session
+          (make-instance 'webdriver-session
+                         :service webdriver-test-service
+                         :requested-capabilities
+                         '(:alwaysMatch (:moz:firefoxOptions
+                                         (:args ["-headless"]))))))
      (webdriver-session-start webdriver-test-session)
      (unwind-protect
          ,@body
@@ -44,8 +44,9 @@
 
 (ert-deftest webdriver-test-service-start-and-stop ()
   "Test that starting and stopping a service works."
-  (let ((service (make-instance 'webdriver-service-firefox :executable "geckodriver"
-                                :buffer "*webdriver*")))
+  (let ((service (make-instance
+                  'webdriver-service-firefox :executable "geckodriver"
+                  :buffer "*webdriver*")))
     (webdriver-service-start service)
     (unwind-protect
         (progn
@@ -76,7 +77,8 @@
    (should (string= (webdriver-get-current-url webdriver-test-session)
                     "https://www.example.org/"))
    (webdriver-refresh webdriver-test-session)
-   (should (string= (webdriver-get-title webdriver-test-session) "Example Domain"))))
+   (should (string= (webdriver-get-title webdriver-test-session)
+                    "Example Domain"))))
 
 (webdriver-service-stop webdriver-test-service)
 
