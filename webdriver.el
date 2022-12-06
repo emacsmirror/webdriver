@@ -125,6 +125,11 @@
 ;;                '(:alwaysMatch (:moz:firefoxOptions (:args ["-headless"]))))
 
 ;;; Code:
+(require 'eieio)
+(require 'eieio-base)
+(require 'cl-lib)
+(require 'json)
+
 ;; Variables and Options.
 (defgroup webdriver nil "WebDriver options."
   :group 'tools
@@ -218,8 +223,7 @@ Optional argument RETRIES may be a number to specify the number of attempts
 to connect to the server before giving up."
   (let ((exec (oref self executable))
         (retries (or retries 10))
-        (i 0)
-        done)
+        (i 0))
     (unless (executable-find exec)
       (error "Can't find the driver to run"))
     (oset self process (make-process :name exec
@@ -230,7 +234,7 @@ to connect to the server before giving up."
     (accept-process-output (oref self process) 1.0 nil t)
     (while (and (process-live-p (oref self process))
                 (< i retries)
-                (not (setq done (webdriver-service-connectable-p self))))
+                (not (webdriver-service-connectable-p self)))
       (setq i (1+ i)))
     (cond
      ((not (process-live-p (oref self process)))
