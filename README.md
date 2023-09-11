@@ -56,4 +56,4 @@ to your load path.
 ## License
 
 - **[GPL 3](https://www.gnu.org/licenses/gpl-3.0-standalone.html)**
-- Copyright 2022 Mauro Aranda
+- Copyright 2022-2023 Mauro Aranda

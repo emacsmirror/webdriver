@@ -1,6 +1,6 @@
-;;; webdriver-tests.el --- Tests for webdriver.el    -*- lexical-binding: t; -*-
+;;; webdriver-tests.el --- Tests for webdriver.el -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022  Mauro Aranda
+;; Copyright (C) 2022-2023  Mauro Aranda
 
 ;; Author: Mauro Aranda <maurooaranda@gmail.com>
 
