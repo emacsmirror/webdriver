@@ -28,7 +28,7 @@
 ;;; Commentary:
 
 ;; This package implements a W3C WebDriver compatible client,
-;; a local end, in ELisp.
+;; known as a "local end", in ELisp.
 
 ;; See the specification in https://www.w3.org/TR/webdriver/
 
@@ -129,6 +129,8 @@
 (require 'eieio-base)
 (require 'cl-lib)
 (require 'json)
+(defvar url-request-method)
+(defvar url-request-data)
 
 ;; Variables and Options.
 (defgroup webdriver nil "WebDriver options."
@@ -372,14 +374,11 @@ Returns the value returned by the driver, unless there are errors."
          (value (webdriver-send-command session cmd)))
     (webdriver-check-for-error value)))
 
-(defvar url-request-method)
-(defvar url-request-data)
-
 (cl-defmethod webdriver-send-command ((self webdriver-session)
                                       (command webdriver-command))
   "Send the command COMMAND in session SELF.
 
-Serializes the body of COMMAND only if it is not a string."
+Serializes the body of COMMAND only if it is not already a string."
   (let* ((url-request-method (oref command method))
          (url-request-data (encode-coding-string
 			    (if (stringp (oref command body))
@@ -490,7 +489,7 @@ TIMEOUT should be a symbol, one of script, pageLoad or implicit."
 
 (cl-defmethod webdriver-set-timeouts ((self webdriver-session)
                                       (timeouts webdriver-timeouts))
-  "Set the timeouts specification for the session SELF."
+  "Set the timeouts specification in TIMEOUTS for the session SELF."
   (webdriver-execute-command self (format "session/%s/timeouts" (oref self id))
                              "POST" (webdriver-json-serialize timeouts)))
 
@@ -642,7 +641,6 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
 
 (cl-defmethod webdriver-json-serialize ((self webdriver-by))
   "JSON-Serialize SELF, a `webdriver-by' object."
-
   (json-serialize (webdriver-object-to-plist self)))
 
 ;; WebDriver Element.
