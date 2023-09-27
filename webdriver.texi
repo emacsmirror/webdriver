@@ -232,6 +232,16 @@ method to implement it.
 
 @node Endpoints
 @chapter Endpoints
+This chapter describes all methods that this package defines,
+corresponding to each endpoint described by the specification.
+
+In case any of the commands generates an error, this package signals an
+error with format:
+@example
+Webdriver error (VAL): MESSAGE
+@end example
+
+Where VAL and MESSAGE depend on the comman that caused the error.
 
 @menu
 * Navigation::
