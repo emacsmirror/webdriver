@@ -35,16 +35,18 @@ Here is another, taken from the Firefox docs:
       element results)
   (webdriver-session-start session)
   (webdriver-goto-url session "https://www.google.com/ncr")
+  (webdriver-set-timeout session 'implicit 1)
   (setq element (webdriver-find-element session (make-instance
                                                  'webdriver-by
                                                  :strategy "tag name"
-                                                 :selector "input")))
+                                                 :selector "textarea")))
   (webdriver-element-send-keys session element "cheese\ue006")
   (setq results (webdriver-find-elements session (make-instance
                                                   'webdriver-by
                                                   :strategy "css selector"
                                                   :selector "h3")))
-  (message (webdriver-get-element-text session (nth 0 results))))
+  (message (webdriver-get-element-text session (nth 0 results)))
+  (webdriver-stop-session))
 ```
 ## Installation
 
