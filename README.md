@@ -39,7 +39,7 @@ Here is another, taken from the Firefox docs:
                                                  'webdriver-by
                                                  :strategy "tag name"
                                                  :selector "input")))
-  (webdriver-send-keys session element "cheese\ue006")
+  (webdriver-element-send-keys session element "cheese\ue006")
   (setq results (webdriver-find-elements session (make-instance
                                                   'webdriver-by
                                                   :strategy "css selector"
