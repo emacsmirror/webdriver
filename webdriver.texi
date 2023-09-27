@@ -186,6 +186,16 @@ The requested capabilities passed when creating the session.
 The actual capabilities that the session supports.
 @end table
 
+At the moment, @code{requested-capabilities} are cumbersome to write.
+For example, to request a headless Firefox session, the code looks like
+this:
+
+@lisp
+(make-instance 'webdriver-session
+               :requested-capabilities
+               '(:alwaysMatch (:moz:firefoxOptions (:args ["-headless"]))))
+@end lisp
+
 The following methods are specialized for the @code{webdriver-session}
 class:
 
