@@ -9,6 +9,7 @@
 ;; Package-Version: 0.1
 ;; Package-Requires: ((emacs "27.1"))
 ;; Keywords: tools
+;; URL: https://gitlab.com/mauroaranda/emacs-webdriver
 
 ;; This file is NOT part of GNU Emacs.
 
