@@ -32,5 +32,9 @@
 # Compiled ELisp
 *.elc
 
+# Docs
+*.info
+webdriver*-html-manual/
+
 # Design
 webdriver.org

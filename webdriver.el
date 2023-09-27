@@ -142,7 +142,7 @@
 
 When creating a `webdriver-session' object without a specified service,
 a service of this class will be instantiated when executing
-`webdriver-sessions-start'.
+`webdriver-session-start'.
 
 Its value should be a symbol, a class name for a `webdriver-service'."
   :type 'symbol

@@ -1,0 +1,653 @@
+input texinfo.tex @c -*-texinfo-*-
+@c %**start of header
+@setfilename webdriver.info
+@settitle emacs-webdriver Manual
+@include docstyle.texi
+@syncodeindex fn cp
+@syncodeindex vr cp
+@c %**end of header
+
+@copying
+Copyright @copyright{} 2023 Mauro Aranda.
+
+@quotation
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover Texts being ``A GNU Manual'',
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled ``GNU Free Documentation License''.
+
+(a) The FSF's Back-Cover Text is: ``You have the freedom to copy and
+modify this GNU manual.''
+@end quotation
+@end copying
+
+@dircategory Emacs misc features
+@direntry
+* Emacs Webdriver: (emacs-webdriver).  WebDriver local end
+  implementation in Elisp
+@end direntry
+
+@titlepage
+@title Emacs Webdriver
+@subtitle A package to control browsers that implement the WebDriver protocol
+
+@author Mauro Aranda
+@page
+
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@ifnottex
+
+@node Top
+@top emacs-webdriver
+
+This manual describes the 0.1 version of emacs-webdriver.
+
+@insertcopying
+@end ifnottex
+
+@menu
+* Overview::                       An overview of the package.
+* Basics::                         What you need to know to use emacs-webdriver
+* Endpoints::                      Endpoints implemented by this package
+* Customizing::                    Customization options for this package
+* GNU Free Documentation License:: The license for this documentation.
+* Index::                          An item for each definition in this manual.
+@end menu
+
+@node Overview
+@chapter Overview
+
+@cindex WebDriver
+In simple terms, WebDriver is an API that defines ways to control a
+browser (aka, drive it).  You can find the specificifaction in
+@url{https://www.w3.org/TR/webdriver2/}.
+
+To be able to control a browser you need two things: a browser that
+implements the remote end of the WebDriver implementation, and a local
+end, the language bindings to communicate with the remote end.  This
+package implements a W3C WebDriver compatible local end, in ELisp.
+
+What this means is that you can write ELisp code to drive any web
+browser that implements the remote end.  The rest is up to you.
+
+This package uses the eieio library (@pxref{Top,,,eieio}), so the rest
+of the manual talks about classes and objects to describe how to use
+this library.
+
+@node Basics
+@chapter Basics
+This package uses classes and generics to implement most of its
+functionality.  The most important are @code{webdriver-service},
+@code{webdriver-session} and @code{webdriver-command}.
+
+To be able to communicate with the browser, you need to have a service
+running.  Once a service is running, you need to start a new session.
+Finally, you're able to send commands to the browser.
+
+@menu
+* Webdriver Service::
+* Webdriver Session::
+* Webdriver Commands::
+@end menu
+
+@node Webdriver Service
+@section Webdriver Service
+An instance of a @code{webdriver-service} is the responsible for running
+the remote end.  This package can start a service upon a request, or
+start communicating with a service started outside of Emacs.
+
+It has the following properties:
+
+@table @code
+@item executable
+The name of the executable to run for this service.
+
+This should be the name of the executable that @code{executable-find}
+can find.
+
+@item port
+Port number to connect to the remote end.
+
+This is usually passed as a command-line argument to the remote end
+executable.
+
+@item log
+Either nil, or a buffer to use for logging information.
+
+@item buffer
+A string or a buffer, to use for communicating with the process.
+
+@item process
+@c TODO: Add cross-reference.
+The process that's running this service.
+
+@item args
+Arguments to pass to the executable.
+@end table
+
+The following functions specialize on @code{webdriver-service}
+
+@defun webdriver-service-start self &optional retries
+Start a new service @var{self}, a @code{webdriver-service} instance.
+
+This function starts a new process which runs the @code{executable} and
+connects it via a pipe.  It uses @code{args} as the arguments to run
+@code{executable}.  If the @code{log} property is non-@code{nil}, sets
+that buffer to log information.  If the @code{buffer} is non-@code{nil},
+associates the process created (to be stored under @code{process}) with
+that buffer.
+
+Optional argument @var{retries} may be a number, to specify the number
+of attempts to connect to the server before giving up.
+@end defun
+
+@defun webdriver-service-stop self
+Stop service @var{self}, a @code{webdriver-service} instance.
+
+Stops the process stored in @code{process}, setting that property to
+@code{nil}.
+@end defun
+
+@defun webdriver-service-connectable-p self
+Non-@code{nil} if a connection can be established to @var{self}.
+@end defun
+
+@defun webdriver-service-url self
+Returns the url where the process associated to @var{self} is listening.
+
+This is something like @samp{http://localhost:PORT}, where @var{port} is
+the value of the property @code{port}.
+@end defun
+
+This package provides a derived class from @code{webdriver-service}, the
+@code{webdriver-service-firefox} class.  This class runs the executable
+``geckodriver'' and by default listens to port 4444.
+
+@node Webdriver Session
+@section Webdriver Session
+A @code{webdriver-session} object has the following properties:
+
+@table @code
+@item service
+An instance of @code{webdriver-service}.
+
+@item id
+The string ID that represents this session.
+
+@item requested-capabilities
+The requested capabilities passed when creating the session.
+
+@item capabilities
+The actual capabilities that the session supports.
+@end table
+
+The following methods are specialized for the @code{webdriver-session}
+class:
+
+@defun initialize-instance :after self &rest _args
+If there is no service associated with @var{self}, create a default one.
+
+@c TODO: Cross-reference here.
+Uses @code{webdriver-default-service}, and sets the @code{service}
+property accordingly.
+@end defun
+
+@defun webdriver-session-start self
+Start a new session associated to @var{self}.
+
+It's an error to call this method if @var{self} has already started.
+@end defun
+
+@defun webdriver-session-stop self
+Stop the session associated to @var{self}.
+
+It's an error to call this method if @var{self} doesn't have a session
+id.
+@end defun
+
+@node Webdriver Commands
+@section Webdriver Commands
+Once you have a service running and a current session, you want to drive
+the browser to execute commands.  Commands are represented with a
+@code{webdriver-command} class, and have the following properties:
+
+@table @code
+@item name
+Name of the command, an URL.
+
+@item method
+Method to use when requesting @code{name}.
+
+@item body
+Data to pass to the command, JSON-serialized.
+@end table
+
+Every endpoint defined in the WebDriver specification has an ELisp
+method to implement it.
+
+@node Endpoints
+@chapter Endpoints
+
+@menu
+* Navigation::
+* Timeouts::
+* Window Handles::
+* Selecting Elements::
+* More DOM Interaction::
+* Cookies::
+* Actions::
+* Alerts::
+* Screenshots::
+* Printing::
+@end menu
+
+@node Navigation
+@section Navigation
+@defun webdriver-goto-url self url
+Navigate to the url @var{url} in session @var{self}.
+@end defun
+
+@defun webdriver-get-current-url self
+Return the current url of the session @var{self}.
+@end defun
+
+@defun webdriver-go-back self
+Go back to the previous url in session @var{self}.
+@end defun
+
+@defun webdriver-go-forward self
+Go forward to the next url in session @var{self}.
+@end defun
+
+@defun webdriver-refresh self
+Refresh the current url in session @var{self}.
+@end defun
+
+@defun webdriver-get-title self
+Get the title of the current page visited in @var{self}.
+@end defun
+
+@node Timeouts
+@section Timeouts
+The class @code{webdriver-timeouts} represents the WebDriver timeouts.
+Its properties are:
+
+@table @code
+@item script
+Timeout limit for script evaluation.
+
+@item pageLoad
+Timeout limit for an explicit navigation attempt.
+
+Camel case is used here because of implementation details.
+
+@item implicit
+Timeout limit for locating an element.
+@end table
+
+All properties are stored as a number of seconds.
+
+@defun webdriver-get-timeouts self
+Get the timeout specification for the session @var{self}.
+
+Returns a @code{webdriver-timeouts} object.
+@end defun
+
+@defun webdriver-get-timeout self timeout
+Get the timeout in seconds for timeout @var{timeout} in session @var{self}.
+
+@var{timeout} should be a symbol, one of the above properties for the
+@code{webdriver-timeouts} class.
+@end defun
+
+@defun webdriver-set-timeouts self timeouts
+Set the timeouts specification in @var{timeouts} for the session @var{self}.
+
+@var{timeouts} is a @code{webdriver-timeouts} instance.
+@end defun
+
+@defun webdriver-set-timeout self timeout secs
+Set timeout @var{timeout} to value @var{secs} times 1000 in session @var{self}.
+
+@var{timeout} should be a symbol, one of the above properties for the
+@code{webdriver-timeouts} class.
+@end defun
+
+@node Window Handles
+@section Window Handles
+@defun webdriver-get-window-handle self
+Get the current window handle associated to the session @var{self}.
+@end defun
+
+@defun webdriver-close-window self
+Close the current window handle associated to the session @var{self}.
+
+If there are no more open top-level windows, stops @var{self}.
+@end defun
+
+@defun webdriver-switch-to-window self handle
+Switch to the window with handle @var{handle} in session @var{self}.
+@end defun
+
+@defun webdriver-get-window-handles self
+Get all window handles associated to the session @var{self}.
+@end defun
+
+@defun webdriver-create-new-window self type
+Create a new window handle of type @var{type} in session @var{self}.
+
+@var{type} is a string, one of "tab" or "window".  The default is "tab".
+@end defun
+
+Window handle dimensions are represented by the @code{webdriver-rect}
+class, with properties @code{width}, @code{height}, @code{x}, @code{y}.
+
+@defun webdriver-get-window-rect self
+Get the current window's rectangle in session @var{self}.
+
+Returns a @code{webdriver-rect} instance.
+@end defun
+
+@defun webdriver-set-window-rect self rect
+Set the current window handle dimensions to rectangle @var{rect} in @var{self}.
+@end defun
+
+@defun webdrive-maximize-window self
+Maximize the current window in session @var{self}.
+@end defun
+
+@defun webdriver-minimize-window self
+Minimize the current window in session @var{self}.
+@end defun
+
+@defun webdriver-fullscreen-window self
+Make the current window in session @var{self} fullscreen.
+@end defun
+
+@defun webdriver-switch-to-frame self id
+Switch to the frame with id @var{id} in session @var{self}.
+@end defun
+
+@defun webdriver-switch-to-parent-frame self
+Switch to the current frame's parent in session @var{self}.
+@end defun
+
+@node Selecting Elements
+@section Selecting Elements
+WebDriver uses a notion of strategies and selectors to select elements
+in the DOM.  In this package, they are represented with the
+@code{webdriver-by} class.  Its two properties are @code{strategy} and
+@code{selector}, both strings.
+
+Locator strategies are defined in
+@url{https://www.w3.org/TR/webdriver2/#locator-strategies}, and they are
+listed here for convenience:
+
+@table @samp
+@item css selector
+Select elements according to CSS.
+
+@item link text
+Select elements according to their ``a'' tags.
+
+@item partial link text
+Like ``link text'', but matches substrings.
+
+@item tag name
+Select elements according to their tag names.
+
+@item xpath
+Select elements with an XPath selector.
+@end table
+
+A WebDriver element is represented with the @code{webdriver-element}
+class, and holds the @code{id}, a string, that identifies the element.
+
+@defun webdriver-find-element self by
+Find an element in the current page in session @var{self}, with strategy
+@var{by}.
+@end defun
+
+@defun webdriver-find-elements self by
+Find all elements in the current page in session @var{self}, with
+strategy @var{by}.
+@end defun
+
+@defun webdriver-find-element-from-element self element by
+Starting from element @var{element}, find an element by @var{by} in
+session @var{self}.
+@end defun
+
+@defun webdriver-find-elements-from-element self element by
+Like @code{webdriver-find-element-from-element}, but finds all elements.
+@end defun
+
+@defun webdriver-get-active-element self
+Get the active element in session @var{self}.
+@end defun
+
+@defun webdriver-element-selected-p self element
+Non-@code{nil} if element @var{element} in session @var{self} is selected.
+@end defun
+
+@defun webdriver-get-element-attribute self element attr
+For element @var{element} in session @var{self}, return the value of
+attribute @var{attr}.
+
+@var{attr} is a string, the name of the attribute.
+@end defun
+
+@defun webdriver-get-element-property self element prop
+For element @var{element} in session @var{self}, return the value of
+property @var{prop}.
+
+@var{prop} is a string, the name of the property.
+@end defun
+
+@defun webdriver-get-element-css-value self element css-value
+For element @var{element} in session @var{self}, return the value of
+@var{css-value}.
+@end defun
+
+@defun webdriver-get-element-text self element
+For element @var{element} in session @var{self}, return its text.
+@end defun
+
+@defun webdriver-get-element-tag-name self element
+For element @var{element} in session @var{self}, return its tag name.
+@end defun
+
+@defun webdriver-get-element-rect self element
+For element @var{element} in session @var{self}, return its rectangle.
+
+The return value is an instance of @code{webdriver-rect}.
+@end defun
+
+@defun webdriver-element-enabled-p self element
+Non-@code{nil} if element @code{element} in session @var{self} is
+enabled.
+@end defun
+
+@defun webdriver-element-click self element
+Click the element @var{element} in session @var{self}.
+@end defun
+
+@defun webdriver-element-clear self element
+Clear the element @var{element} in session @var{self}.
+@end defun
+
+@defun webdriver-element-send-keys self element text
+Send @var{text} to element @var{element} in session @var{self}.
+@end defun
+
+If you need to interact with a Shadow DOM, represented with the
+@code{webdriver-shadow} class, you need the following commands:
+
+@defun webdriver-find-element-from-shadow-root self shadow by
+Starting from shadow root @var{shadow}, find an element by @var{by} in
+session @var{self}.
+@end defun
+
+@defun webdriver-find-elements-from-shadow-root self shadow by
+Like @code{webdriver-find-element-from-shadow-roots}, but finds all
+elements.
+@end defun
+
+@defun webdriver-get-element-shadow-root self element
+Get the shadow root for element @var{element} in session @var{self}.
+@end defun
+
+@node More DOM Interaction
+@section More DOM Interaction
+@defun webdriver-get-page-source self
+Get the page source for the current page visited in session @var{self}.
+@end defun
+
+@defun webdriver-execute-synchronous-script self script args
+Execute script @var{script} with arguments @var{args} in session
+@var{self}.
+
+As the name says, the execution is synchronous.
+@end defun
+
+@defun webdriver-execute-asynchronous-script self script args
+Like @code{webdriver-execute-synchronous-script}, but asynchronously.
+@end defun
+
+@node Cookies
+@section Cookies
+@defun webdriver-get-all-cookies self
+Get all cookies in session @var{self}.
+@end defun
+
+@defun webdriver-get-cookie self name
+Get a cookie named @var{name} in session @var{self}.
+@end defun
+
+@defun webdriver-add-cookie self cookie
+Add a cookie @var{cookie} to session @var{self}.
+@end defun
+
+@defun webdriver-delete-cookie self name
+Delete the cookie named @var{name} in session @var{self}.
+@end defun
+
+@defun webdriver-delete-all-cookies self
+Delete all cookies in session @var{self}.
+@end defun
+
+@node Actions
+@section Actions
+WebDriver Actions are a way to group sequences of user inputs, to send
+to the browser all at once.  They are represented by the
+@code{webdriver-action-sequence} class, which has the following
+properties:
+
+@table @code
+@item id
+ID of the input source, a string.
+
+@item type
+Symbol to represent the source type: one of @code{none}, @code{key},
+@code{pointer} or @code{wheel}.
+
+@item actions
+A list that holds all actions to perform.
+
+@item pointer-params
+Extra pointer parameters to pass when @code{type} is @code{pointer}.
+@end table
+
+@defun webdriver-perform-actions self actions
+Perform the actions stored in slot actions of @var{actions} in session
+@var{self}.
+@end defun
+
+@defun webdriver-release-actions self
+Release all keys and pointer buttons currently depressed in session
+@var{self}.
+@end defun
+
+@defun webdriver-append-actions self subtype extra
+Append an action of subtype @var{subtype} with @var{extra} parameters to
+@var{self}, a @code{webdriver-action-sequence} object.
+
+@var{subtype} should be a symbol, representing one of the supported
+action subtypes: @code{pause}, @code{keyDown}, @code{keyUp},
+@code{pointerDown}, @code{pointerUp}, @code{pointerMove},
+@code{pointerCancel} or @code{scroll}.
+
+@var{extra} should be a property list with the parameters that the
+action needs.
+@end defun
+
+@node Alerts
+@section Alerts
+@defun webdriver-dismiss-alert self
+Dismiss an alert in session @var{self}.
+@end defun
+
+@defun webdriver-accept-alert self
+Accept an alert in session @var{self}.
+@end defun
+
+@defun webdriver-get-alert-text self
+Return the alert text in session @var{self}.
+@end defun
+
+@defun webdriver-send-alert-text self text
+Send @var{text} to the alert in session @var{self}.
+@end defun
+
+@node Screenshots
+@section Screenshots
+@defun webdriver-take-screenshot self
+Return an econded string of a screenshot capture in session @var{self}.
+@end defun
+
+@defun webdriver-take-element-screenshot self element
+As @code{webdriver-take-screenshot}, but for an element @var{element}.
+@end defun
+
+@node Printing
+@section Printing
+@defun webdriver-print-page self printobj
+Print the current page in session @var{self} as a pdf file, using
+@var{printobj}.
+
+@var{printobj} is a plist with all the parameters to pass to the print
+command.
+@end defun
+
+@node Customizing
+@chapter Customizing
+
+@defopt webdriver-default-service
+Default service to use when creating a session.
+
+Its value should be a symbol, a class name for a
+@code{webdriver-service}.  Usually, a derived class from it.
+
+This variable comes into play when creating a @code{webdriver-session}
+object without a specified service, and it is instantiated with the
+function @code{webdriver-session-start}.
+
+The default is @code{webdriver-service-firefox}.
+@end defopt
+
+@node GNU Free Documentation License
+@appendix GNU Free Documentation License
+@include doclicense.texi
+
+@node Index
+@unnumbered Index
+@printindex cp
+
+@bye
+
+@c End.
