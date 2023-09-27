@@ -7,7 +7,7 @@
 ;; Created: Wed Nov 23 10:24:00 2022
 ;; Version: 0.1
 ;; Package-Version: 0.1
-;; Package-Requires: ((emacs "25.1"))
+;; Package-Requires: ((emacs "27.1"))
 ;; Keywords: tools
 
 ;; This file is NOT part of GNU Emacs.
