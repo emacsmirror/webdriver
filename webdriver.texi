@@ -123,8 +123,7 @@ Either nil, or a buffer to use for logging information.
 A string or a buffer, to use for communicating with the process.
 
 @item process
-@c TODO: Add cross-reference.
-The process that's running this service.
+The process that's running this service.  (@pxref{Processes,,,elisp})
 
 @item args
 Arguments to pass to the executable.
@@ -202,7 +201,6 @@ class:
 @defun initialize-instance :after self &rest _args
 If there is no service associated with @var{self}, create a default one.
 
-@c TODO: Cross-reference here.
 Uses @code{webdriver-default-service}, and sets the @code{service}
 property accordingly.
 @end defun
