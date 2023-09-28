@@ -51,6 +51,7 @@
 ;; Command Name -> ELisp function
 ;; New Session -> `webdriver-session-start'
 ;; Delete Session -> `webdriver-session-stop'
+;; Status -> `webdriver-service-status'
 ;; Get Timeouts -> `webdriver-get-timeouts'
 ;; Set Timeouts -> `webdriver-set-timeouts'
 ;; Navigate To -> `webdriver-goto-url'
@@ -325,6 +326,10 @@ By default, it is 4444, which is the default for geckodriver."))
       (webdriver-service-start service)
       (oset self service service))))
 
+(cl-defmethod webdriver-service-status ((self webdriver-session))
+  "Return information about whether the service can create a new session SELF."
+  (webdriver-execute-command self "status" "GET"))
+
 (cl-defmethod webdriver-session-start ((self webdriver-session))
   "Start a new session associated to SELF."
   (when (oref self id)
@@ -342,6 +347,10 @@ By default, it is 4444, which is the default for geckodriver."))
     (error "Session doesn't have a session ID"))
   (webdriver-execute-command self (format "session/%s" (oref self id)) "DELETE")
   (oset self id nil))
+
+(cl-defmethod webdriver-service-ready-p ((self webdriver-session))
+  "Non-nil if the service connected to SELF is ready."
+  (alist-get 'ready (alist-get 'value (webdriver-session-status self))))
 
 ;; Webdriver Commands.
 (defclass webdriver-command nil
