@@ -205,6 +205,21 @@ Uses @code{webdriver-default-service}, and sets the @code{service}
 property accordingly.
 @end defun
 
+@defun webdriver-service-status self
+Return status information for the service stored in @var{self}.
+
+The most relevant information is if service is ready to create a new
+session @var{self}.  You might need to call this before calling
+@code{webdriver-session-start}.
+@end defun
+
+@defun webdriver-service-ready-p self
+Non-nil if the service stored in @var{self} is ready.
+
+Ready means that an attempt to create a session @var{self} will not
+fail.  However, it's not guaranteed that the command will succeed.
+@end defun
+
 @defun webdriver-session-start self
 Start a new session associated to @var{self}.
 
