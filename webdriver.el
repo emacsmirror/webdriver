@@ -55,7 +55,7 @@
 ;; Get Timeouts -> `webdriver-get-timeouts'
 ;; Set Timeouts -> `webdriver-set-timeouts'
 ;; Navigate To -> `webdriver-goto-url'
-;; Get Current Url -> `webdriver-get-current-url'
+;; Get Current URL -> `webdriver-get-current-url'
 ;; Back -> `webdriver-go-back'
 ;; Forward -> `webdriver-go-forward'
 ;; Refresh -> `webdriver-refresh'
@@ -77,7 +77,7 @@
 ;; Find Element -> `webdriver-find-element'
 ;; Find Elements -> `webdriver-find-elements'
 ;; Find Element From Element -> `webdriver-find-element-from-element'
-;; Find Elemenets From Element -> `webdriver-find-elements-from-element'
+;; Find Elements From Element -> `webdriver-find-elements-from-element'
 ;; Find Element From Shadow Root -> `webdriver-find-element-from-shadow-root'
 ;; Find Elements From Shadow Root -> `webdriver-find-elements-from-shadow-root'
 ;; Is Element Selected -> `webdriver-element-selected-p'
@@ -107,6 +107,7 @@
 ;; Send Alert Text -> `webdriver-send-alert-text'
 ;; Take Screenshot -> `webdriver-take-screenshot'
 ;; Take Element Screenshot -> `webdriver-take-element-screenshot'
+;; Print Page -> `webdriver-print-page'
 
 ;; Here is a usage example:
 ;; (let ((session (make-instance 'webdriver-session)))
