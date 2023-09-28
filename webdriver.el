@@ -1,6 +1,6 @@
 ;;; webdriver.el --- WebDriver local end implementation -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2023  Mauro Aranda
+;; Copyright (C) 2022-2023  Mauro Aranda
 
 ;; Author: Mauro Aranda <maurooaranda@gmail.com>
 ;; Maintainer: Mauro Aranda <maurooaranda@gmail.com>
