@@ -353,7 +353,7 @@ By default, it is 4444, which is the default for geckodriver."))
 
 (cl-defmethod webdriver-service-ready-p ((self webdriver-session))
   "Non-nil if the service connected to SELF is ready."
-  (alist-get 'ready (alist-get 'value (webdriver-session-status self))))
+  (alist-get 'ready (alist-get 'value (webdriver-service-status self))))
 
 ;; Webdriver Commands.
 (defclass webdriver-command nil
