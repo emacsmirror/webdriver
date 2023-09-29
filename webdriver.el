@@ -88,6 +88,8 @@
 ;; Get Element Tag Name -> `webdriver-get-element-tag-name'
 ;; Get Element Rect -> `webdriver-get-element-rect'
 ;; Is Element Enabled -> `webdriver-element-enabled-p'
+;; Get Computed Role -> `webdriver-element-get-computed-role'
+;; Get Computed Label -> `webdriver-element-get-computed-label'
 ;; Element Click -> `webdriver-element-click'
 ;; Element Clear -> `webdriver-element-clear'
 ;; Element Send Keys -> `webdriver-element-send-keys'
@@ -850,6 +852,27 @@ TYPE defaults to \"tab\", and can be one of \"tab\" or \"window\"."
                                         (oref element id))
                            "GET"))))
     (if (eq value json-false) nil t)))
+
+(cl-defmethod webdriver-element-get-computed-role ((self webdriver-session)
+                                                   (element webdriver-element))
+  "Get the role of element ELEMENT in session SELF."
+  (alist-get 'value
+             (webdriver-execute-command
+              self (format "session/%s/element/%s/computedrole"
+                           (oref self id)
+                           (oref element id))
+              "GET")))
+
+(cl-defmethod webdriver-element-get-computed-label
+  ((self webdriver-session)
+   (element webdriver-element))
+  "Get the label of element ELEMENT in session SELF."
+  (alist-get 'value
+             (webdriver-execute-command
+              self (format "session/%s/element/%s/computedlabel"
+                           (oref self id)
+                           (oref element id))
+              "GET")))
 
 (cl-defmethod webdriver-element-click ((self webdriver-session)
                                        (element webdriver-element))

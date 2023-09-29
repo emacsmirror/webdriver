@@ -506,6 +506,14 @@ Non-@code{nil} if element @code{element} in session @var{self} is
 enabled.
 @end defun
 
+@defun webdriver-element-get-computed-role self element
+Get the role of element @var{element} in session @var{self}.
+@end defun
+
+@defun webdriver-element-get-computed-label self element
+Get the label of element @var{element} in session @var{self}.
+@end defun
+
 @defun webdriver-element-click self element
 Click the element @var{element} in session @var{self}.
 @end defun
