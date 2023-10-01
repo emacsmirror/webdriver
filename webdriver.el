@@ -153,6 +153,11 @@ Its value should be a symbol, a class name for a `webdriver-service'."
   :type 'symbol
   :package-version "0.1")
 
+(defvar webdriver-errors-hash-table
+  (make-hash-table :test #'equal :size 30)
+  "Hash table to map a Webdriver \"error code\" to an ELisp error.
+Error codes are strings, defined in the specification.")
+
 ;; Utils.
 (defun webdriver--get-free-port ()
   "Return a free port on localhost, as an integer."
@@ -169,14 +174,65 @@ Its value should be a symbol, a class name for a `webdriver-service'."
     ret))
 
 ;; Errors.
+(define-error 'webdriver-error "Webdriver error")
+
+(defun webdriver-define-error (error-code)
+  "Define an ELisp error with its name taken from the ERROR-CODE string.
+
+Adds it to `webdriver-errors-hash-table'."
+  ;; webdriver-name is just to keep package-lint happy.
+  ;; It's really imenu's fault.
+  (let ((webdriver-name
+         (intern (concat "webdriver-"
+                         (mapconcat #'identity (split-string error-code " ")
+                                    "-")))))
+    (define-error webdriver-name (format "Webdriver error: %s" error-code)
+                  'webdriver-error)
+    (puthash error-code webdriver-name webdriver-errors-hash-table)))
+
+(dolist (err
+         '("element click intercepted"
+           "element not interactable"
+           "insecure certificate"
+           "invalid argument"
+           "invalid cookie domain"
+           "invalid element state"
+           "invalid selector"
+           "invalid session id"
+           "javascript error"
+           "move target out of bounds"
+           "no such alert"
+           "no such cookie"
+           "no such element"
+           "no such frame"
+           "no such window"
+           "no such shadow root"
+           "script timeout error"
+           "session not created"
+           "stale element reference"
+           "detached shadow root"
+           "timeout"
+           "unable to set cookie"
+           "unable to capture screen"
+           "unexpected alert open"
+           "unknown command"
+           "unknown error"
+           "unknown method"
+           "unsupported operation"))
+  (webdriver-define-error err))
+
 (defun webdriver-check-for-error (value)
   "Check if VALUE, the JSON response from the webdriver, is an error value.
 
 If it is, then signal an error.  If it is not, return VALUE."
   (let ((val (alist-get 'value value)))
     (when (and (listp val) (alist-get 'error val))
-      (error (format "Webdriver error (%s): %s"
-                     (alist-get 'error val) (alist-get 'message val))))
+      (signal (gethash (alist-get 'error val) webdriver-errors-hash-table
+                       'webdriver-error)
+              (list (alist-get 'message val)
+                    (alist-get 'stacktrace val)
+                    (when (alist-get 'data val)
+                      (alist-get 'text (alist-get 'data val))))))
     value))
 
 ;; WebDriver Service.
@@ -232,7 +288,7 @@ to connect to the server before giving up."
         (retries (or retries 10))
         (i 0))
     (unless (executable-find exec)
-      (error "Can't find the driver to run"))
+      (signal 'webdriver-error (list (format "%s cannot be found" exec))))
     (oset self process (make-process :name exec
                                      :command (append (list exec)
                                                       (oref self args))
@@ -245,13 +301,13 @@ to connect to the server before giving up."
       (setq i (1+ i)))
     (cond
      ((not (process-live-p (oref self process)))
-      (error "Service unexpectedly closed"))
+      (signal 'webdriver-error (list "Service unexpectedly closed")))
      ((= i retries)
-      (error "Couldn't connect to the service"))
+      (signal 'webdriver-error (list "Couldn't connect to the service")))
      (t
       (when (oref self log)
         (with-current-buffer (get-buffer-create (oref self log))
-          (insert "Started executable correctly")))))))
+          (insert "Webdriver Info: Started executable correctly\n\n")))))))
 
 (cl-defmethod webdriver-service-stop ((self webdriver-service))
   "Stop the service described by SELF.
@@ -336,7 +392,7 @@ By default, it is 4444, which is the default for geckodriver."))
 (cl-defmethod webdriver-session-start ((self webdriver-session))
   "Start a new session associated to SELF."
   (when (oref self id)
-    (error "Session already started"))
+    (signal 'webdriver-error (list "Session already started")))
   (let ((value (webdriver-execute-command
                 self "session" "POST"
                 `(:capabilities ,(oref self requested-capabilities)))))
@@ -347,7 +403,7 @@ By default, it is 4444, which is the default for geckodriver."))
 (cl-defmethod webdriver-session-stop ((self webdriver-session))
   "Stop the session associated to SELF."
   (unless (oref self id)
-    (error "Session doesn't have a session ID"))
+    (signal 'webdriver-error (list "Session doesn't have a session ID")))
   (webdriver-execute-command self (format "session/%s" (oref self id)) "DELETE")
   (oset self id nil))
 
@@ -385,7 +441,18 @@ Returns the value returned by the driver, unless there are errors."
                              :method method
                              :body body))
          (value (webdriver-send-command session cmd)))
-    (webdriver-check-for-error value)))
+    (condition-case err
+        (webdriver-check-for-error value)
+      (webdriver-error
+       (when-let ((buf (oref (oref session service) log))
+                  (data (cdr err)))
+         (with-current-buffer buf
+           (insert (format "%S:\nStacktrace" (car err) )
+                   (nth 1 data) ":\n"
+                   (if (nth 2 data)
+                       (concat "Data: " (nth 2 data))
+                     ""))))
+       (signal (car err) (list (cadr err)))))))
 
 (cl-defmethod webdriver-send-command ((self webdriver-session)
                                       (command webdriver-command))
@@ -496,8 +563,8 @@ TIMEOUT should be a symbol, one of script, pageLoad or implicit."
     (if timeout
         (if (member timeout '(script pageLoad implicit))
             (slot-value timeouts timeout)
-          (error (format "Webdriver error (%s): %s"
-                         "invalid timeout" "")))
+          (signal 'webdriver-error (list
+                                    (format "invalid timeout, %S" timeout))))
       timeouts)))
 
 (cl-defmethod webdriver-set-timeouts ((self webdriver-session)
@@ -515,8 +582,7 @@ TIMEOUT should be a symbol, one of script, pageLoad or implicit."
                                               (oref self id))
                                  "POST" (list (intern (format ":%s" timeout))
                                               (* secs 1000)))
-    (error (format "Webdriver error (%s): %s"
-                   "invalid timeout" ""))))
+    (signal 'webdriver-error (list (format "invalid timeout %S" timeout)))))
 
 ;; A WebDriver rect.
 (defclass webdriver-rect nil

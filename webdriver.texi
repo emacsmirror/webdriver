@@ -54,6 +54,7 @@ This manual describes the 0.1 version of emacs-webdriver.
 * Overview::                       An overview of the package.
 * Basics::                         What you need to know to use emacs-webdriver
 * Endpoints::                      Endpoints implemented by this package
+* Errors::                         When things go wrong
 * Customizing::                    Customization options for this package
 * GNU Free Documentation License:: The license for this documentation.
 * Index::                          An item for each definition in this manual.
@@ -664,6 +665,85 @@ Print the current page in session @var{self} as a pdf file, using
 @var{printobj} is a plist with all the parameters to pass to the print
 command.
 @end defun
+
+@node Errors
+@chapter Errors
+The WebDriver specification defines various errors, with a string
+(called an ``Error Code'') representing each error.  Each
+``Error Code'' has a corresponding Emacs Lisp error
+(@pxref{Errors,,,elisp}).
+
+This is a list of the errors that this library defines.  You should read
+the specification to learn more about each error.
+
+@table @code
+@item webdriver-error
+A generic error, representing any webdriver error, plus any other error
+that may occur within this library.
+
+@item webdriver-element-click-intercepted
+
+@item webdriver-element-not-interactable
+
+@item webdriver-insecure-certificate
+
+@item webdriver-invalid-argument
+
+@item webdriver-invalid-cookie-domain
+
+@item webdriver-invalid-element-state
+
+@item webdriver-invalid-selector
+
+@item webdriver-invalid-session-id
+
+@item webdriver-javascript-error
+
+@item webdriver-move-target-out-of-bounds
+
+@item webdriver-no-such-alert
+
+@item webdriver-no-such-cookie
+
+@item webdriver-no-such-element
+
+@item webdriver-no-such-frame
+
+@item webdriver-no-such-window
+
+@item webdriver-no-such-shadow-root
+
+@item webdriver-script-timeout-error
+
+@item webdriver-session-not-created
+
+@item webdriver-stale-element-reference
+
+@item webdriver-detached-shadow-root
+
+@item webdriver-timeout
+
+@item webdriver-unable-to-set-cookie
+
+@item webdriver-unable-to-capture-screen
+
+@item webdriver-unexpected-alert-open
+
+@item webdriver-unknown-command
+
+@item webdriver-unknown-error
+
+@item webdriver-unknown-method
+
+@item webdriver-unsupported-operation
+
+@end table
+
+If the @code{webdriver-service} has a log buffer where to report
+information, the library adds a text there with the error that occurred,
+and any additional information, such as the stacktrace and possibly some
+text.  See @url{https://www.w3.org/TR/webdriver/#errors} for more
+information.
 
 @node Customizing
 @chapter Customizing
