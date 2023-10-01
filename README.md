@@ -50,8 +50,12 @@ Here is another, taken from the Firefox docs:
 ```
 ## Installation
 
-Download the webdriver.el file, byte-compile it and add the directory
-to your load path.
+This package is available on [MELPA](https://melpa.org), so it can be
+installed with
+`M-x package-install RET webdriver RET`
+
+Alternatively, you can get a clone of this repo, run make and arrange
+for adding the directory to your load path.
 
 ---
 
