@@ -92,6 +92,7 @@ Finally, you're able to send commands to the browser.
 
 @menu
 * Webdriver Service::
+* Webdriver Capabilities::
 * Webdriver Session::
 * Webdriver Commands::
 @end menu
@@ -168,6 +169,70 @@ This package provides a derived class from @code{webdriver-service}, the
 @code{webdriver-service-firefox} class.  This class runs the executable
 ``geckodriver'' and by default listens to port 4444.
 
+@node Webdriver Capabilities
+@section Webdriver Capabilities
+The class @code{webdriver-capabilities} describes a WebDriver
+capabilities object.
+
+It becomes relevant when you want to request some features to the remote
+end for creating a new session.  Check out the specification at
+@url{https://www.w3.org/TR/webdriver2/#capabilities}
+
+A @code{webdriver-capabilities} object has the following properties:
+
+@table @code
+@item capabilities
+A property list with up to two entries: @code{:alwaysMatch} and
+@code{:firstMatch}.  Each entry holds itself a property list, where each
+key is a capability as defined in the specification, and the value is
+the value for that capability.
+@end table
+
+@defun webdriver-capabilities-add self cap val &optional required
+Add capability @var{cap} with value @var{val} to the capabilities in
+@var{self}.
+
+If @var{required} is non-@code{nil}, adds @var{cap} as an
+``alwaysMatch'' capability.  Else, adds it as a ``firstMatch''
+capability.
+@end defun
+
+For example, to set the ``Accept insecure TLS certificates'' as
+required, you can do:
+
+@lisp
+(webdriver-capabilities-add my-caps :acceptInsecureCerts t t)
+@end lisp
+
+where @var{my-caps} is a @code{webdriver-capabilities} object.
+
+@defun webdriver-capabilities-get self
+Get the capabilities in @var{self}, as a property list.
+@end defun
+
+The @code{webdriver-capabilities-firefox} derives from
+@code{webdriver-capabilities}, and specializes on the following methods:
+
+@defun webdriver-capabilities-add self cap val &optional required
+Like @code{webdriver-capabilities-add}, but adds @var{cap} as part of
+the @code{:moz:firefoxOptions} capability.  If @var{cap} is not a
+@code{:moz:firefoxOptions} capability, it calls its super method.
+@end defun
+
+@defun webdriver-capabilities-firefox-add-arg self arg &optional required
+Add the firefox argument @var{arg} to the capabilities in @var{self}.
+
+If REQUIRED is non-nil, adds it as an ``alwaysMatch'' capability.  Else,
+adds it as a ``firstMatch'' capability.
+@end defun
+
+@defun webdriver-capabilities-firefox-add-args self args &optional required
+Add the firefox arguments @var{args} to the capabilities in @var{self}.
+
+This is like @code{webdriver-capabilities-firefox-add-arg}, but it
+overwrites all arguments already present in @code{:args}.
+@end defun
+
 @node Webdriver Session
 @section Webdriver Session
 A @code{webdriver-session} object has the following properties:
@@ -180,10 +245,12 @@ An instance of @code{webdriver-service}.
 The string ID that represents this session.
 
 @item requested-capabilities
-The requested capabilities passed when creating the session.
+The requested capabilities passed when creating the session.  Either a
+property list, or a @code{webdriver-capabilities} object.
 
 @item capabilities
-The actual capabilities that the session supports.
+The actual capabilities that the session supports.  This is just a
+property list.
 @end table
 
 At the moment, @code{requested-capabilities} are cumbersome to write.

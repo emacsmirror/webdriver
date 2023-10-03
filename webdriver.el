@@ -122,12 +122,15 @@
 ;;     (message (webdriver-get-element-text session element)))
 ;;   (webdriver-session-stop session))
 
-;; Currently, there is not great support for constructing a
-;; requested capabilities object to pass to the New Session command.
-;; For example, if you want to request a headless Firefox session, use:
-;; (make-instance 'webdriver-session
-;;                :requested-capabilities
-;;                '(:alwaysMatch (:moz:firefoxOptions (:args ["-headless"]))))
+;; If you want to request the remote end for certain capabilities, you can do
+;; that using a `webdriver-capabilities' object, and adding options to it.
+;; For example, for a headless Firefox session, you can use:
+;; (let ((caps (make-instance 'webdriver-capabilities-firefox)))
+;;   (webdriver-capabilities-firefox-add-arg caps "-headless" t)
+;;   (make-instance 'webdriver-session :requested-capabilities caps))
+;; This adds the "-headless" argument as part of :args in the
+;; :moz:firefoxOptions.  The third argument t says to add this requested
+;; capability as an alwaysMatch capability.
 
 ;;; Code:
 (require 'eieio)
@@ -234,6 +237,97 @@ If it is, then signal an error.  If it is not, return VALUE."
                     (when (alist-get 'data val)
                       (alist-get 'text (alist-get 'data val))))))
     value))
+
+;; WebDriver Capabilities.
+(defclass webdriver-capabilities nil
+  ((capabilities
+    :initarg :capabilities
+    :initform nil
+    :type list
+    :documentation "Hold a plist with capabilities."))
+  "Represent a Webdriver Capabilities specification.")
+
+(cl-defmethod webdriver-capabilities-add ((self webdriver-capabilities)
+                                          cap val &optional required)
+  "Add capability CAP with value VAL to the capabilities in SELF.
+
+If REQUIRED is non-nil, adds CAP as an \"alwaysMatch\" capability.  Else, adds
+it as a \"firstMatch\" capability."
+  (let ((caps (plist-get (oref self capabilities)
+                         (if required :alwaysMatch :firstMatch))))
+    (oset self capabilities
+          (plist-put (oref self capabilities) (if required
+                                                  :alwaysMatch
+                                                :firstMatch)
+                     (plist-put caps cap val)))))
+
+(cl-defmethod webdriver-capabilities-get ((self webdriver-capabilities))
+  "Get the capabilities in SELF, as a plist."
+  (oref self capabilities))
+
+(defclass webdriver-capabilities-firefox (webdriver-capabilities)
+  ((capabilities
+    :initform (list :alwaysMatch (list :browserName "firefox"))))
+  "Represent a Webdriver Capabilities specification for Firefox.")
+
+(cl-defmethod webdriver-capabilities-add :around
+  ((self webdriver-capabilities-firefox)
+   cap val &optional required)
+  "Add capability CAP with value VAL to the capabilities in SELF.
+
+If REQUIRED is non-nil, adds CAP as an \"alwaysMatch\" capability.  Else, adds
+it as a \"firstMatch\" capability.
+
+If CAP is not a moz:firefoxOptions capability, it falls back to
+`webdriver-capabilities-add' specialized on `webdriver-capabilities'."
+  (if (member cap '(:binary :args :profile :log :prefs :env))
+      (let* ((caps (plist-get (oref self capabilities)
+                              (if required :alwaysMatch :firstMatch)))
+             (moz-opts (plist-get caps :moz:firefoxOptions)))
+        (oset self capabilities
+              (plist-put
+               (oref self capabilities)
+               (if required :alwaysMatch :firstMatch)
+               (plist-put caps :moz:firefoxOptions
+                          (plist-put moz-opts cap val)))))
+    (cl-call-next-method self cap val required)))
+
+(cl-defmethod webdriver-capabilities-firefox-add-arg
+  ((self webdriver-capabilities-firefox) arg &optional required)
+  "Add the firefox argument ARG to the capabilities in SELF.
+
+If REQUIRED is non-nil, adds it as an \"alwaysMatch\" capability.  Else, adds
+it as a \"firstMatch\" capability."
+  (let* ((caps (plist-get (oref self capabilities)
+                          (if required :alwaysMatch :firstMatch)))
+         (moz-opts (plist-get caps :moz:firefoxOptions)))
+    (oset self capabilities
+          (plist-put (oref self capabilities)
+                     (if required :alwaysMatch :firstMatch)
+                     (plist-put caps :moz:firefoxOptions
+                                (plist-put moz-opts :args
+                                           (vconcat
+                                            (vector arg)
+                                            (plist-get moz-opts :args))))))))
+
+(cl-defmethod webdriver-capabilities-firefox-add-args
+  ((self webdriver-capabilities-firefox) args &optional required)
+  "Add firefox arguments in list ARGS to the capabilities in SELF.
+
+If REQUIRED is non-nil, adds it as an \"alwaysMatch\" capability.  Else, adds
+it as a \"firstMatch\" capability.
+
+Unlike `webdriver-capabilities-firefox-add-arg', this function overwrites
+all arguments already present in :args."
+  (let* ((caps (plist-get (oref self capabilities)
+                          (if required :alwaysMatch :firstMatch)))
+         (moz-opts (plist-get caps :moz:firefoxOptions)))
+    (oset self capabilities
+          (plist-put (oref self capabilities)
+                     (if required :alwaysMatch :firstMatch)
+                     (plist-put caps :moz:firefoxOptions
+                                (plist-put moz-opts :args
+                                           (vconcat args)))))))
 
 ;; WebDriver Service.
 (defclass webdriver-service nil
@@ -369,12 +463,12 @@ By default, it is 4444, which is the default for geckodriver."))
    (requested-capabilities
     :initform nil
     :initarg :requested-capabilities
-    :type list
+    :type (or list webdriver-capabilities)
     :documentation
     "The requested capabilities passed when creating the session.")
    (capabilities
     :initform nil
-    :type list
+    :type (or list webdriver-capabilities)
     :documentation "The actual capabilities that the session supports."))
   "Represent a WebDriver session to control a browser.")
 
@@ -395,7 +489,11 @@ By default, it is 4444, which is the default for geckodriver."))
     (signal 'webdriver-error (list "Session already started")))
   (let ((value (webdriver-execute-command
                 self "session" "POST"
-                `(:capabilities ,(oref self requested-capabilities)))))
+                ;; Don't use `plistp', to support Emacs < 29.
+                `(:capabilities ,(if (listp (oref self requested-capabilities))
+                                     (oref self requested-capabilities)
+                                   (webdriver-capabilities-get
+                                    (oref self requested-capabilities)))))))
     (setq value (alist-get 'value value))
     (oset self id (alist-get 'sessionId value))
     (oset self capabilities (alist-get 'capabilities value))))
