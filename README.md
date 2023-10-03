@@ -1,3 +1,5 @@
+[![MELPA](https://melpa.org/packages/webdriver-badge.svg)](https://melpa.org/#/webdriver)
+
 # webdriver: Control a browser with Emacs Lisp
 
 > A WebDriver local end implementation in Emacs Lisp
