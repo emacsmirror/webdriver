@@ -93,6 +93,7 @@ Finally, you're able to send commands to the browser.
 @menu
 * Webdriver Service::
 * Webdriver Capabilities::
+* Webdriver Proxy Configuration::
 * Webdriver Session::
 * Webdriver Commands::
 @end menu
@@ -195,6 +196,11 @@ Add capability @var{cap} with value @var{val} to the capabilities in
 If @var{required} is non-@code{nil}, adds @var{cap} as an
 ``alwaysMatch'' capability.  Else, adds it as a ``firstMatch''
 capability.
+
+This function knows how to handle @code{webdriver-timeouts} and
+@code{webdriver-proxy-configuration} objects.  In case you want to
+specify any of those capabilities, @var{cap} should be either
+@code{:timeouts} or @code{:proxy}, respectively.
 @end defun
 
 For example, to set the ``Accept insecure TLS certificates'' as
@@ -210,7 +216,7 @@ where @var{my-caps} is a @code{webdriver-capabilities} object.
 Get the capabilities in @var{self}, as a property list.
 @end defun
 
-The @code{webdriver-capabilities-firefox} derives from
+The @code{webdriver-capabilities-firefox} class derives from
 @code{webdriver-capabilities}, and specializes on the following methods:
 
 @defun webdriver-capabilities-add self cap val &optional required
@@ -233,6 +239,15 @@ This is like @code{webdriver-capabilities-firefox-add-arg}, but it
 overwrites all arguments already present in @code{:args}.
 @end defun
 
+@node Webdriver Proxy Configuration
+@section Webdriver Proxy Configuration
+The @code{webdriver-proxy-configuration} class represents a WebDriver
+proxy configuration from the specification.  All properties correspond
+to the keys specified in @url{https://www.w3.org/TR/webdriver2/#proxy}.
+
+You can use this object to add the @code{:proxy} capability before
+requesting a new session, with @code{webdriver-capabilities-add}.
+
 @node Webdriver Session
 @section Webdriver Session
 A @code{webdriver-session} object has the following properties:
@@ -252,16 +267,6 @@ property list, or a @code{webdriver-capabilities} object.
 The actual capabilities that the session supports.  This is just a
 property list.
 @end table
-
-At the moment, @code{requested-capabilities} are cumbersome to write.
-For example, to request a headless Firefox session, the code looks like
-this:
-
-@lisp
-(make-instance 'webdriver-session
-               :requested-capabilities
-               '(:alwaysMatch (:moz:firefoxOptions (:args ["-headless"]))))
-@end lisp
 
 The following methods are specialized for the @code{webdriver-session}
 class:

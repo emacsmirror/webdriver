@@ -329,6 +329,96 @@ all arguments already present in :args."
                                 (plist-put moz-opts :args
                                            (vconcat args)))))))
 
+;; WebDriver proxy configuration.
+(defclass webdriver-proxy-configuration nil
+  ((proxyType :initform ""
+              :initarg :proxy-type
+              :type string
+              :documentation "Type of proxy configuration.")
+   (proxyAutoconfigUrl :initform ""
+                       :initarg :proxy-autoconfig-url
+                       :type string
+                       :documentation "URL for a proxy auto-config file.
+It's meaningful when proxyType is \"pac\".")
+   (ftpProxy :initform ""
+             :initarg :ftp-proxy
+             :type string
+             :documentation "Proxy host for FTP traffic,
+when proxyType is \"manual\".")
+   (httpProxy :initform ""
+              :initarg :http-proxy
+              :type string
+              :documentation "Proxy host for HTTP traffic,
+when proxyType is \"manual\".")
+   (noProxy :initform []
+            :initarg :no-proxy
+            :type vector
+            :documentation "Vector with address to bypass,
+when proxyType \"manual\".")
+   (sslProxy :initform ""
+             :initarg :ssl-proxy
+             :type string
+             :documentation "Proxy host for encrypted TLS traffic,
+when proxyType is \"manual\".")
+   (socksProxy :initform ""
+               :initarg :socks-proxy
+               :type string
+               :documentation "Proxy host for a SOCKS proxy,
+when proxyType is \"manual\".")
+   (socksVersion :initform 0
+                 :initarg :socks-version
+                 :type number
+                 :documentation "The SOCKS proxy version,
+when proxyType is \"manual\"."))
+  "Representation of a WebDriver proxy configuration.")
+
+(cl-defmethod webdriver-object-to-plist ((self webdriver-proxy-configuration))
+  "Represent SELF as a property list.
+
+The property list is as: (PROP VAL), where PROP is each property of SELF
+and VAL is the value of that property."
+  ;; FIXME: Starting to see a pattern here.
+  (let ((keys '(:proxyType :proxyAutoconfigUrl :ftpProxy :httpProxy
+                           :noProxy :sslProxy :socksProxy :socksVersion))
+        (props '(proxyType proxyAutoconfigUrl ftpProxy httpProxy noProxy
+                           sslProxy socksProxy socksVersion)))
+    (cl-mapcan (lambda (key prop)
+                 (let ((val (slot-value self prop)))
+                   (cond ((and (stringp val) (not (string= val "")))
+                          (list key val))
+                         ((and (vectorp val) (/= (length val) 0))
+                          (list key val))
+                         (t nil))))
+               keys props)))
+
+(cl-defmethod webdriver-json-serialize ((self webdriver-proxy-configuration))
+  "JSON-serialize SELF.
+
+Calls `json-serialize' with SELF represented as a property list."
+  (json-serialize (webdriver-object-to-plist self)))
+
+(cl-defmethod webdriver-capabilities-add ((self webdriver-capabilities) cap
+                                          (val webdriver-proxy-configuration)
+                                          &optional required)
+  "Add capability CAP with value VAL to the capabilities in SELF.
+
+VAL should be a proxy configuration object, and CAP should be :proxy.
+
+If REQUIRED is non-nil, adds CAP as an \"alwaysMatch\" capability.  Else, adds
+it as a \"firstMatch\" capability."
+  (unless (eq cap :proxy)
+    (signal 'webdriver-error
+            (list (format "Bad CAP %s for webdriver-proxy-configuration"
+                          cap))))
+  (let ((caps (plist-get (oref self capabilities)
+                         (if required :alwaysMatch :firstMatch))))
+    (oset self capabilities
+          (plist-put (oref self capabilities) (if required
+                                                  :alwaysMatch
+                                                :firstMatch)
+                     (plist-put caps cap
+                                (webdriver-object-to-plist val))))))
+
 ;; WebDriver Service.
 (defclass webdriver-service nil
   ((executable
@@ -639,6 +729,27 @@ and VAL is the value of that property."
 
 Calls `json-serialize' with SELF represented as a property list."
   (json-serialize (webdriver-object-to-plist self)))
+
+(cl-defmethod webdriver-capabilities-add ((self webdriver-capabilities) cap
+                                          (val webdriver-timeouts)
+                                          &optional required)
+  "Add capability CAP with value VAL to the capabilities in SELF.
+
+VAL should be a timeouts object, and CAP should be :timeouts.
+
+If REQUIRED is non-nil, adds CAP as an \"alwaysMatch\" capability.  Else, adds
+it as a \"firstMatch\" capability."
+  (unless (eq cap :timeouts)
+    (signal 'webdriver-error (list (format "Bad CAP %s for webdriver-timeouts"
+                                           cap))))
+  (let ((caps (plist-get (oref self capabilities)
+                         (if required :alwaysMatch :firstMatch))))
+    (oset self capabilities
+          (plist-put (oref self capabilities) (if required
+                                                  :alwaysMatch
+                                                :firstMatch)
+                     (plist-put caps cap
+                                (webdriver-object-to-plist val))))))
 
 (cl-defmethod webdriver-get-timeouts ((self webdriver-session))
   "Get the timeout specification for the session SELF.
