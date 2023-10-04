@@ -278,8 +278,8 @@ it as a \"firstMatch\" capability."
 If REQUIRED is non-nil, adds CAP as an \"alwaysMatch\" capability.  Else, adds
 it as a \"firstMatch\" capability.
 
-If CAP is not a moz:firefoxOptions capability, it falls back to
-`webdriver-capabilities-add' specialized on `webdriver-capabilities'."
+If CAP is not a moz:firefoxOptions capability, it falls back to the super's
+method."
   (if (member cap '(:binary :args :profile :log :prefs :env))
       (let* ((caps (plist-get (oref self capabilities)
                               (if required :alwaysMatch :firstMatch)))
@@ -713,7 +713,7 @@ Serializes the body of COMMAND only if it is not already a string."
 Each property is stored as a number of seconds.")
 
 (cl-defmethod webdriver-object-to-plist ((self webdriver-timeouts))
-  "Represent SELF, a `webdriver-timeouts' object, as a property list.
+  "Represent SELF as a property list.
 
 The property list is as: (PROP VAL), where PROP is each property of SELF
 and VAL is the value of that property."
@@ -725,7 +725,7 @@ and VAL is the value of that property."
                timeouts props)))
 
 (cl-defmethod webdriver-json-serialize ((self webdriver-timeouts))
-  "JSON-serialize SELF, a `webdriver-timeouts' object.
+  "JSON-serialize SELF."
 
 Calls `json-serialize' with SELF represented as a property list."
   (json-serialize (webdriver-object-to-plist self)))
