@@ -703,10 +703,16 @@ Serializes the body of COMMAND only if it is not already a string."
 ;; WebDriver Timeouts.
 (defclass webdriver-timeouts nil
   ((script :initform 30 :initarg :script :type (or integer null)
+           :writer webdriver-timeout-set-script
+           :reader webdriver-timeout-get-script
            :documentation "Timeout limit for script evaluation.")
-   (pageLoad :initform 300 :initarg :pageLoad :type (or integer null)
+   (pageLoad :initform 300 :initarg :page-load :type (or integer null)
+             :writer webdriver-timeout-set-pageload
+             :reader webdriver-timeout-get-pageload
              :documentation "Timeout limit for an explicit navigation attempt.")
    (implicit :initform 0 :initarg :implicit :type (or integer null)
+             :writer webdriver-timeout-set-implicit
+             :reader webdriver-timeout-get-implicit
              :documentation "Timeout limit for locating an element."))
   "Representation of a WebDriver timeouts configuration.
 
@@ -725,7 +731,7 @@ and VAL is the value of that property."
                timeouts props)))
 
 (cl-defmethod webdriver-json-serialize ((self webdriver-timeouts))
-  "JSON-serialize SELF."
+  "JSON-serialize SELF.
 
 Calls `json-serialize' with SELF represented as a property list."
   (json-serialize (webdriver-object-to-plist self)))
@@ -761,7 +767,7 @@ Returns a `webdriver-timeouts' object with the current timeout specification."
                                   "GET"))))
     (make-instance 'webdriver-timeouts
                    :script (/ (alist-get 'script value) 1000)
-                   :pageLoad (/ (alist-get 'pageLoad value) 1000)
+                   :page-load (/ (alist-get 'pageLoad value) 1000)
                    :implicit (/ (alist-get 'implicit value) 1000))))
 
 (cl-defmethod webdriver-get-timeout ((self webdriver-session) timeout)
