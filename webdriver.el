@@ -270,6 +270,17 @@ it as a \"firstMatch\" capability."
     :initform (list :alwaysMatch (list :browserName "firefox"))))
   "Represent a Webdriver Capabilities specification for Firefox.")
 
+(defclass webdriver-firefox-log nil
+  ((level :initform "info"
+          :initarg :level
+          :type string
+          :documentation "Level of verbosity for logging information."))
+  "Represent a log object for firefox capabilities.")
+
+(cl-defmethod webdriver-object-to-plist ((self webdriver-firefox-log))
+  "Return SELF as a property list."
+  (list :level (oref self level)))
+
 (cl-defmethod webdriver-capabilities-add :around
   ((self webdriver-capabilities-firefox)
    cap val &optional required)
@@ -291,6 +302,21 @@ method."
                (plist-put caps :moz:firefoxOptions
                           (plist-put moz-opts cap val)))))
     (cl-call-next-method self cap val required)))
+
+(cl-defmethod webdriver-capabilities-add :around
+  ((self webdriver-capabilities-firefox)
+   cap (val webdriver-firefox-log) &optional required)
+  "Add capability CAP with value VAL to the capabilities in SELF.
+
+If REQUIRED is non-nil, adds CAP as an \"alwaysMatch\" capability.  Else, adds
+it as a \"firstMatch\" capability.
+
+If CAP is not a moz:firefoxOptions capability, it falls back to the super's
+method."
+  (unless (eq cap :log)
+    (signal 'webdriver-error (list (format "Wrong capability %s" cap))))
+  (webdriver-capabilities-add self cap (webdriver-object-to-plist val)
+                              required))
 
 (cl-defmethod webdriver-capabilities-firefox-add-arg
   ((self webdriver-capabilities-firefox) arg &optional required)
