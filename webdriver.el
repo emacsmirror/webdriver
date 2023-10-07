@@ -281,6 +281,19 @@ it as a \"firstMatch\" capability."
   "Return SELF as a property list."
   (list :level (oref self level)))
 
+(defclass webdriver-firefox-preferences nil
+  ((preferences :initform nil
+                :initarg :preferences
+                :type list
+                :documentation "Property list with preferences and values."))
+  "Represent a Firefox Preferences object.")
+
+(cl-defmethod webdriver-firefox-preference-add
+  ((self webdriver-firefox-preferences) preference value)
+  "Add to SELF the preference PREFERENCE with value VALUE."
+  (oset self preferences
+        (plist-put (oref self preferences) preference value)))
+
 (cl-defmethod webdriver-capabilities-add :around
   ((self webdriver-capabilities-firefox)
    cap val &optional required)
@@ -317,6 +330,19 @@ method."
     (signal 'webdriver-error (list (format "Wrong capability %s" cap))))
   (webdriver-capabilities-add self cap (webdriver-object-to-plist val)
                               required))
+
+(cl-defmethod webdriver-capabilities-add :around
+  ((self webdriver-capabilities-firefox)
+   cap (val webdriver-firefox-preferences) &optional required)
+  "Add to SELF the capability CAP with value VAL.
+
+If REQUIRED is non-nil, adds CAP as an \"alwaysMatch\" capability.  Else, adds
+it as a \"firstMatch\" capability.
+
+VAL should be a firefox preference, and CAP should be :prefs."
+  (unless (eq cap :prefs)
+    (signal 'webdriver-error (list (format "Wrong capability %s" cap))))
+  (webdriver-capabilities-add self cap (oref val preferences) required))
 
 (cl-defmethod webdriver-capabilities-firefox-add-arg
   ((self webdriver-capabilities-firefox) arg &optional required)
