@@ -294,6 +294,19 @@ it as a \"firstMatch\" capability."
   (oset self preferences
         (plist-put (oref self preferences) preference value)))
 
+(defclass webdriver-firefox-env nil
+  ((env-vars :initform nil
+             :initarg :env-vars
+             :type list
+             :documentation "Property list with environment variables."))
+  "Represent a Firefox Env object.")
+
+(cl-defmethod webdriver-firefox-env-add
+  ((self webdriver-firefox-env) env-var value)
+  "Add to SELF the environment variable ENV-VAR with value VALUE."
+  (oset self env-vars
+        (plist-put (oref self env-vars) env-var value)))
+
 (cl-defmethod webdriver-capabilities-add :around
   ((self webdriver-capabilities-firefox)
    cap val &optional required)
@@ -343,6 +356,19 @@ VAL should be a firefox preference, and CAP should be :prefs."
   (unless (eq cap :prefs)
     (signal 'webdriver-error (list (format "Wrong capability %s" cap))))
   (webdriver-capabilities-add self cap (oref val preferences) required))
+
+(cl-defmethod webdriver-capabilities-add :around
+  ((self webdriver-capabilities-firefox)
+   cap (val webdriver-firefox-env) &optional required)
+  "Add to SELF the capability CAP with value VAL.
+
+If REQUIRED is non-nil, adds CAP as an \"alwaysMatch\" capability.  Else, adds
+it as a \"firstMatch\" capability.
+
+VAL should be a firefox env object, and CAP should be :env."
+  (unless (eq cap :env)
+    (signal 'webdriver-error (list (format "Wrong capability %s" cap))))
+  (webdriver-capabilities-add self cap (oref val env-vars) required))
 
 (cl-defmethod webdriver-capabilities-firefox-add-arg
   ((self webdriver-capabilities-firefox) arg &optional required)
