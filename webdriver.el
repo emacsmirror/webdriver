@@ -153,7 +153,15 @@ a service of this class will be instantiated when executing
 `webdriver-session-start'.
 
 Its value should be a symbol, a class name for a `webdriver-service'."
-  :type 'symbol
+  :type `(symbol :match ,(lambda (_wid val)
+                           (child-of-class-p val 'webdriver-service))
+                 :validate ,(lambda (w)
+                              (unless (widget-apply w :match (widget-value w))
+                                (widget-put w :error
+                                            (format
+                                             "%S is not a webdriver-service"
+                                             (widget-value w)))
+                                w)))
   :package-version "0.1")
 
 (defvar webdriver-errors-hash-table
