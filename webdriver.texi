@@ -65,7 +65,7 @@ This manual describes the 0.1 version of emacs-webdriver.
 
 @cindex WebDriver
 In simple terms, WebDriver is an API that defines ways to control a
-browser (aka, drive it).  You can find the specificifaction in
+browser (aka, drive it).  You can find the specification in
 @url{https://www.w3.org/TR/webdriver2/}.
 
 To be able to control a browser you need two things: a browser that
