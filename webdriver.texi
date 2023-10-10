@@ -51,13 +51,14 @@ This manual describes the 0.1 version of emacs-webdriver.
 @end ifnottex
 
 @menu
-* Overview::                       An overview of the package.
+* Overview::                       An overview of the package
+* Prerequisites::                  What you need prior to using this package
 * Basics::                         What you need to know to use emacs-webdriver
 * Endpoints::                      Endpoints implemented by this package
 * Errors::                         When things go wrong
 * Customizing::                    Customization options for this package
 * GNU Free Documentation License:: The license for this documentation.
-* Index::                          An item for each definition in this manual.
+* Index::                          An item for each definition in this manual
 @end menu
 
 @node Overview
@@ -69,9 +70,10 @@ browser (aka, drive it).  You can find the specification in
 @url{https://www.w3.org/TR/webdriver2/}.
 
 To be able to control a browser you need two things: a browser that
-implements the remote end of the WebDriver implementation, and a local
-end, the language bindings to communicate with the remote end.  This
-package implements a W3C WebDriver compatible local end, in ELisp.
+implements the remote end of the WebDriver implementation (together with
+an additional program, the driver), and a local end, the language
+bindings to communicate with the remote end.  This package implements a
+W3C WebDriver compatible local end, in ELisp.
 
 What this means is that you can write ELisp code to drive any web
 browser that implements the remote end.  The rest is up to you.
@@ -79,6 +81,19 @@ browser that implements the remote end.  The rest is up to you.
 This package uses the eieio library (@pxref{Top,,,eieio}), so the rest
 of the manual talks about classes and objects to describe how to use
 this library.
+
+@node Prerequisites
+@chapter Prerequisites
+As the previous chapter says, apart from this package you need a browser
+and its driver, to be able to control it through the functions that this
+package provides.
+
+At the moment, there's mostly support for running for running Firefox
+with the Mozilla GeckoDriver driver.  If you're interested in driving
+other browsers you have installed, you should search to see if that
+browser has a driver available.  If it does, then it's just a matter of
+providing a @code{webdriver-service} for that browser.  @xref{Webdriver
+Service}, for more information.
 
 @node Basics
 @chapter Basics
@@ -145,7 +160,13 @@ associates the process created (to be stored under @code{process}) with
 that buffer.
 
 Optional argument @var{retries} may be a number, to specify the number
-of attempts to connect to the server before giving up.
+of attempts to connect to the server before giving up.  It may also be a
+list of the form (RETRIES WAIT-TIME) where @var{retries} has the same
+meaning as when it's a plain number, and @var{wait-time} specifies the
+time to wait before retrying.  By default, @var{wait-time} is 0.1 and
+@var{retries} is 10.
+
+This function sets the value of @code{port} in case it's missing.
 @end defun
 
 @defun webdriver-service-stop self
@@ -160,7 +181,7 @@ Non-@code{nil} if a connection can be established to @var{self}.
 @end defun
 
 @defun webdriver-service-url self
-Returns the url where the process associated to @var{self} is listening.
+Return the url where the process associated to @var{self} is listening.
 
 This is something like @samp{http://localhost:PORT}, where @var{port} is
 the value of the property @code{port}.

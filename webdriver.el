@@ -553,9 +553,19 @@ If `log' is non-nil, use that buffer to log information.
 If `buffer' is non-nil, associate the process with that buffer.
 
 Optional argument RETRIES may be a number to specify the number of attempts
-to connect to the server before giving up."
+to connect to the server before giving up.  It may also be a list of the
+form (RETRIES WAIT-TIME), where RETRIES specifies the number of attempts to
+connect to the server before giving up, and WAIT-TIME the time to wait before
+retrying.  By default, WAIT-TIME is 0.1 and RETRIES is 10."
   (let ((exec (oref self executable))
-        (retries (or retries 10))
+        (wait (if (and retries (listp retries))
+                  (cadr retries)
+                0.1))
+        (retries (if retries
+                     (if (listp retries)
+                         (car retries)
+                       retries)
+                   10))
         (i 0))
     (unless (executable-find exec)
       (signal 'webdriver-error (list (format "%s cannot be found" exec))))
@@ -565,9 +575,13 @@ to connect to the server before giving up."
                                      :connection-type 'pipe
                                      :buffer (oref self buffer)))
     (accept-process-output (oref self process) 1.0 nil t)
+    ;; Default to some valid port if not given.
+    (unless (oref self port)
+      (oset self port (webdriver--get-free-port)))
     (while (and (process-live-p (oref self process))
                 (< i retries)
                 (not (webdriver-service-connectable-p self)))
+      (sleep-for wait)
       (setq i (1+ i)))
     (cond
      ((not (process-live-p (oref self process)))
@@ -605,8 +619,9 @@ Stops the process stored in `process', and sets it to nil."
 
 (cl-defmethod webdriver-service-url ((self webdriver-service))
   "Return the URL where the process associated to SELF is listening."
-  ;; FIXME: Obviously 0 won't work.
-  (format "http://localhost:%d" (or (oref self port) 0)))
+  (let ((port (or (oref self port)
+                  (oset self port (webdriver--get-free-port)))))
+    (format "http://localhost:%d" port)))
 
 ;; Firefox Service.
 (defclass webdriver-service-firefox (webdriver-service)
