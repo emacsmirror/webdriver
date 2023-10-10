@@ -628,7 +628,7 @@ Stops the process stored in `process', and sets it to nil."
   ((executable
     :initform "geckodriver"
     :documentation "Executable when running a Firefox Service.
-This is usually \"geckodriver\", and it should be in `executable-path'.")
+This is usually \"geckodriver\", and it should be in `exec-path'.")
    (port
     :initform 4444
     :documentation "Port to pass as an option to geckodriver.
