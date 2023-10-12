@@ -539,7 +539,8 @@ it as a \"firstMatch\" capability."
   "A WebDriver service abstraction, for running the remote ends.")
 
 (cl-defmethod webdriver-service-start ((self webdriver-service)
-                                       &optional retries)
+                                       &optional retries
+                                       &rest process-args)
   "Start a new service described by SELF.
 
 This starts a new process which runs `executable' and connects it via a pipe.
@@ -556,7 +557,10 @@ Optional argument RETRIES may be a number to specify the number of attempts
 to connect to the server before giving up.  It may also be a list of the
 form (RETRIES WAIT-TIME), where RETRIES specifies the number of attempts to
 connect to the server before giving up, and WAIT-TIME the time to wait before
-retrying.  By default, WAIT-TIME is 0.1 and RETRIES is 10."
+retrying.  By default, WAIT-TIME is 0.1 and RETRIES is 10.
+
+If given, PROCESS-ARGS are keyword-value pairs to use when starting the
+process.  See `make-process'."
   (let ((exec (oref self executable))
         (wait (if (and retries (listp retries))
                   (cadr retries)
@@ -569,11 +573,13 @@ retrying.  By default, WAIT-TIME is 0.1 and RETRIES is 10."
         (i 0))
     (unless (executable-find exec)
       (signal 'webdriver-error (list (format "%s cannot be found" exec))))
-    (oset self process (make-process :name exec
-                                     :command (append (list exec)
-                                                      (oref self args))
-                                     :connection-type 'pipe
-                                     :buffer (oref self buffer)))
+    (oset self process (apply #'make-process
+                               :name exec
+                               :command (append (list exec)
+                                                (oref self args))
+                               :connection-type 'pipe
+                               :buffer (oref self buffer)
+                               process-args))
     (accept-process-output (oref self process) 1.0 nil t)
     ;; Default to some valid port if not given.
     (unless (oref self port)
@@ -636,7 +642,7 @@ By default, it is 4444, which is the default for geckodriver."))
   "The Firefox Service, that runs the geckodriver.")
 
 (cl-defmethod webdriver-service-start :before
-  ((self webdriver-service-firefox) &optional _retries)
+  ((self webdriver-service-firefox) &optional _retries &rest process-args)
   "Add the port argument to the command line."
   (oset self args (list "--port" (number-to-string (oref self port)))))
 

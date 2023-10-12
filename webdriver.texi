@@ -149,7 +149,7 @@ Arguments to pass to the executable.
 
 The following functions specialize on @code{webdriver-service}
 
-@defun webdriver-service-start self &optional retries
+@defun webdriver-service-start self &optional retries &rest process-args
 Start a new service @var{self}, a @code{webdriver-service} instance.
 
 This function starts a new process which runs the @code{executable} and
@@ -165,6 +165,10 @@ list of the form (RETRIES WAIT-TIME) where @var{retries} has the same
 meaning as when it's a plain number, and @var{wait-time} specifies the
 time to wait before retrying.  By default, @var{wait-time} is 0.1 and
 @var{retries} is 10.
+
+You can further control the starting process by passing keyword-value
+pairs as the @var{process-args} argument.  These values get passed to
+@code{make-process}.  (@pxref{Asynchronous Processes,,,elisp})
 
 This function sets the value of @code{port} in case it's missing.
 @end defun
