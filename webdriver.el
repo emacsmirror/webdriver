@@ -654,6 +654,12 @@ By default, it is 4444, which is the default for geckodriver."))
     :type (or boolean webdriver-service)
     :documentation
     "An instance of `webdriver-service' that the session should connect to.")
+   (cleanup-service
+    :initform nil
+    :type boolean
+    :documentation "Whether the session is responsible for cleaning up the service.
+This is non-nil when :service wasn't specified, so creating a `webdriver-session'
+object started a default service.")
    (id :initform nil
        :type (or boolean string)
        :documentation "String ID for this session.")
@@ -674,7 +680,8 @@ By default, it is 4444, which is the default for geckodriver."))
   (unless (oref self service)
     (let ((service (make-instance webdriver-default-service)))
       (webdriver-service-start service)
-      (oset self service service))))
+      (oset self service service)
+      (oset self cleanup-service t))))
 
 (cl-defmethod webdriver-service-status ((self webdriver-session))
   "Return information about whether the service can create a new session SELF."
@@ -700,6 +707,8 @@ By default, it is 4444, which is the default for geckodriver."))
   (unless (oref self id)
     (signal 'webdriver-error (list "Session doesn't have a session ID")))
   (webdriver-execute-command self (format "session/%s" (oref self id)) "DELETE")
+  (when (oref self cleanup-service)
+    (webdriver-service-stop (oref self service)))
   (oset self id nil))
 
 (cl-defmethod webdriver-service-ready-p ((self webdriver-session))
