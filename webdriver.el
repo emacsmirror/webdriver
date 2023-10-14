@@ -581,9 +581,9 @@ process.  See `make-process'."
                                :buffer (oref self buffer)
                                process-args))
     (accept-process-output (oref self process) 1.0 nil t)
-    ;; Default to some valid port if not given.
-    (unless (oref self port)
-      (oset self port (webdriver--get-free-port)))
+    (when (oref self buffer)
+      ;; Get the port from the response.
+      (oset self port (webdriver-service-get-port self)))
     (while (and (process-live-p (oref self process))
                 (< i retries)
                 (not (webdriver-service-connectable-p self)))
@@ -629,6 +629,9 @@ Stops the process stored in `process', and sets it to nil."
                   (oset self port (webdriver--get-free-port)))))
     (format "http://localhost:%d" port)))
 
+(cl-defgeneric webdriver-service-get-port (service)
+  "Get port where SERVICE is listening on.")
+
 ;; Firefox Service.
 (defclass webdriver-service-firefox (webdriver-service)
   ((executable
@@ -638,13 +641,33 @@ This is usually \"geckodriver\", and it should be in `exec-path'.")
    (port
     :initform 4444
     :documentation "Port to pass as an option to geckodriver.
-By default, it is 4444, which is the default for geckodriver."))
+By default, it is 4444, which is the default for geckodriver.")
+   (buffer
+    :initform " *webdriver-geckodriver*"
+    :initarg :buffer
+    :type (or string buffer)
+    :documentation "Buffer to use for I/O with the process."))
   "The Firefox Service, that runs the geckodriver.")
 
 (cl-defmethod webdriver-service-start :before
   ((self webdriver-service-firefox) &optional _retries &rest process-args)
   "Add the port argument to the command line."
-  (oset self args (list "--port" (number-to-string (oref self port)))))
+  (unless (member "--port" (oref self args))
+    (oset self args (append (oref self args)
+                            (list "--port" (number-to-string (oref self port)))))))
+
+(cl-defmethod webdriver-service-get-port ((self webdriver-service-firefox))
+  "Get port where SELF is listening on.
+
+Looks up the port from the associated buffer to SELF.  It is an error to call
+this function if SELF doesn't have an associated buffer."
+  (with-current-buffer (oref self buffer)
+    (save-excursion
+      (goto-char (point-min))
+      (re-search-forward "Listening on [^:]*:")
+      (string-to-number (buffer-substring
+                         (point)
+                         (progn (end-of-line) (point)))))))
 
 ;; WebDriver Session.
 (defclass webdriver-session nil

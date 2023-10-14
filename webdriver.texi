@@ -132,7 +132,10 @@ can find.
 Port number to connect to the remote end.
 
 This is usually passed as a command-line argument to the remote end
-executable.
+executable.  If that's the case, then the @code{webdriver-service} class
+needs to implement the method @code{webdriver-service-get-port} method,
+to set the port that the service in question is indeed listening on.  In
+that case, the @code{buffer} slot becomes mandatory.
 
 @item log
 Either nil, or a buffer to use for logging information.
@@ -189,6 +192,16 @@ Return the url where the process associated to @var{self} is listening.
 
 This is something like @samp{http://localhost:PORT}, where @var{port} is
 the value of the property @code{port}.
+@end defun
+
+@defun webdriver-service-get-port self
+Return port where service SELF is listening on.
+
+This method should be implemented by any derived class from
+@code{webdriver-service} that passes the port to listen on as a
+command-line argument.  It should return the port, as a number.  The way
+to do it is usually by looking up the response of the executable being
+run, that gets inserted into the buffer in the @code{buffer} slot.
 @end defun
 
 This package provides a derived class from @code{webdriver-service}, the
