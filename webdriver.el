@@ -514,22 +514,22 @@ it as a \"firstMatch\" capability."
    (port
     :initarg :port
     :initform nil
-    :type (or boolean integer)
+    :type (or null integer)
     :documentation
     "Port to connect to, usually passed as a command-line argument.")
    (log
     :initarg :log
     :initform nil
-    :type (or boolean string buffer)
+    :type (or null string buffer)
     :documentation "Buffer to use when logging information.")
    (buffer
     :initarg :buffer
     :initform nil
-    :type (or boolean string buffer)
+    :type (or null string buffer)
     :documentation "Buffer to use for I/O with the process.")
    (process
     :initform nil
-    :type (or boolean process)
+    :type (or null process)
     :documentation "Process for this service.")
    (args
     :initarg :args
@@ -645,12 +645,12 @@ By default, it is 4444, which is the default for geckodriver.")
    (buffer
     :initform " *webdriver-geckodriver*"
     :initarg :buffer
-    :type (or string buffer)
+    :type (or null string buffer)
     :documentation "Buffer to use for I/O with the process."))
   "The Firefox Service, that runs the geckodriver.")
 
 (cl-defmethod webdriver-service-start :before
-  ((self webdriver-service-firefox) &optional _retries &rest process-args)
+  ((self webdriver-service-firefox) &optional _retries &rest _process-args)
   "Add the port argument to the command line."
   (unless (member "--port" (oref self args))
     (oset self args (append (oref self args)
