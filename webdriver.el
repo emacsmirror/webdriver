@@ -154,14 +154,23 @@ a service of this class will be instantiated when executing
 
 Its value should be a symbol, a class name for a `webdriver-service'."
   :type `(symbol :match ,(lambda (_wid val)
-                           (child-of-class-p val 'webdriver-service))
+                           (and (find-class val)
+                                (child-of-class-p val 'webdriver-service)))
                  :validate ,(lambda (w)
                               (unless (widget-apply w :match (widget-value w))
                                 (widget-put w :error
                                             (format
                                              "%S is not a webdriver-service"
                                              (widget-value w)))
-                                w)))
+                                w))
+                 :completions ,(apply-partially #'completion-table-with-predicate
+                                                obarray
+                                                (lambda (obj)
+                                                  (and (find-class obj)
+                                                       (child-of-class-p
+                                                        obj
+                                                        'webdriver-service)))
+                                                'strict))
   :package-version "0.1")
 
 (defvar webdriver-errors-hash-table
