@@ -17,7 +17,7 @@
 
 ## Programs used.
 EMACS = emacs
-EMACSFLAGS = -batch -f batch-byte-compile
+EMACSFLAGS = -batch -L . -f batch-byte-compile
 MAKEINFO ?= makeinfo
 
 ## Variables (some might not be used right now).
@@ -29,7 +29,7 @@ PACKAGE_TARNAME = webdriver-0.1
 PACKAGE_URL = 
 PACKAGE_VERSION = 0.1
 DISTDIR = $(PACKAGE_TARNAME)
-DISTFILES = COPYING README.md Makefile webdriver.el
+DISTFILES = COPYING README.md Makefile webdriver.el webdriver-chrome.el
 
 MAKEHTML_FLAGS = --html --output=$(PACKAGE_HTML_MANUAL_DIR)
 
@@ -37,7 +37,7 @@ MAKEHTML_FLAGS = --html --output=$(PACKAGE_HTML_MANUAL_DIR)
 
 .PHONY: all info clean dist
 
-all: webdriver.elc
+all: webdriver.elc webdriver-chrome.elc
 
 info: webdriver.info
 
@@ -45,6 +45,9 @@ html: webdriver.html
 
 webdriver.elc: webdriver.el
 	$(EMACS) $(EMACSFLAGS) webdriver.el
+
+webdriver-chrome.elc: webdriver-chrome.el
+	$(EMACS) $(EMACSFLAGS) webdriver-chrome.el
 
 webdriver.info: webdriver.texi
 	$(MAKEINFO) webdriver.texi
@@ -54,11 +57,12 @@ webdriver.html: webdriver.texi
 
 clean:
 	-rm -f webdriver.elc
+	-rm -f webdriver-chrome.elc
 	-rm -f $(PACKAGE_TARNAME).tar.gz
 	-rm -f webdriver.info
 	-rm -f -r $(PACKAGE_HTML_MANUAL_DIR)
 
-dist: webdriver.elc info
+dist: webdriver.elc webdriver-chrome.elc info
 	mkdir --parents $(DISTDIR)
 	cp --parents $(DISTFILES) $(DISTDIR)
 	tar -cf $(PACKAGE_TARNAME).tar $(DISTDIR)
