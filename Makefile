@@ -29,7 +29,7 @@ PACKAGE_TARNAME = webdriver-0.1
 PACKAGE_URL = 
 PACKAGE_VERSION = 0.1
 DISTDIR = $(PACKAGE_TARNAME)
-DISTFILES = COPYING README.md Makefile webdriver.el webdriver-chrome.el
+DISTFILES = COPYING README.md Makefile webdriver.el webdriver-firefox.el webdriver-chrome.el
 
 MAKEHTML_FLAGS = --html --output=$(PACKAGE_HTML_MANUAL_DIR)
 
@@ -37,7 +37,7 @@ MAKEHTML_FLAGS = --html --output=$(PACKAGE_HTML_MANUAL_DIR)
 
 .PHONY: all info clean dist
 
-all: webdriver.elc webdriver-chrome.elc
+all: webdriver.elc webdriver-firefox.elc webdriver-chrome.elc
 
 info: webdriver.info
 
@@ -45,6 +45,9 @@ html: webdriver.html
 
 webdriver.elc: webdriver.el
 	$(EMACS) $(EMACSFLAGS) webdriver.el
+
+webdriver-firefox.elc: webdriver-firefox.el
+	$(EMACS) $(EMACSFLAGS) webdriver-firefox.el
 
 webdriver-chrome.elc: webdriver-chrome.el
 	$(EMACS) $(EMACSFLAGS) webdriver-chrome.el
@@ -57,12 +60,13 @@ webdriver.html: webdriver.texi
 
 clean:
 	-rm -f webdriver.elc
+	-rm -f webdriver-firefox.elc
 	-rm -f webdriver-chrome.elc
 	-rm -f $(PACKAGE_TARNAME).tar.gz
 	-rm -f webdriver.info
 	-rm -f -r $(PACKAGE_HTML_MANUAL_DIR)
 
-dist: webdriver.elc webdriver-chrome.elc info
+dist: webdriver.elc webdriver-firefox.elc webdriver-chrome.elc info
 	mkdir --parents $(DISTDIR)
 	cp --parents $(DISTFILES) $(DISTDIR)
 	tar -cf $(PACKAGE_TARNAME).tar $(DISTDIR)
