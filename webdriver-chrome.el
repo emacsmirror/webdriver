@@ -1,6 +1,6 @@
 ;;; webdriver-chrome.el --- Implement webdriver-service for chrome  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2023  Mauro Aranda
+;; Copyright (C) 2023-2025  Mauro Aranda
 
 ;; Author: Mauro Aranda <tbb@tbb-desktop>
 ;; Keywords: tools

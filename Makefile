@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2023 Mauro Aranda
+# Copyright (C) 2022-2025 Mauro Aranda
 
 # This file is part of webdriver.
 
