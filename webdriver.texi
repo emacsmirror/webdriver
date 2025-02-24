@@ -89,21 +89,22 @@ and its driver, to be able to control it through the functions that this
 package provides.
 
 At the moment, there's mostly support for running for running Firefox
-with the Mozilla GeckoDriver driver.  If you're interested in driving
-other browsers you have installed, you should search to see if that
-browser has a driver available.  If it does, then it's just a matter of
-providing a @code{webdriver-service} for that browser.  @xref{Webdriver
-Service}, for more information.
+with the Mozilla GeckoDriver driver, and for the Google Chrome
+browser.  If you're interested in driving other browsers you have
+installed, you should search to see if that browser has a driver
+available.  If it does, then it's just a matter of providing a
+@code{webdriver-service} for that browser.  @xref{Webdriver Service},
+for more information.
 
 @node Basics
 @chapter Basics
 This package uses classes and generics to implement most of its
-functionality.  The most important are @code{webdriver-service},
+functionality.  The most important classes are @code{webdriver-service},
 @code{webdriver-session} and @code{webdriver-command}.
 
 To be able to communicate with the browser, you need to have a service
 running.  Once a service is running, you need to start a new session.
-Finally, you're able to send commands to the browser.
+Finally, you'll be able to send commands to the browser.
 
 @menu
 * Webdriver Service::
@@ -125,7 +126,7 @@ It has the following properties:
 @item executable
 The name of the executable to run for this service.
 
-This should be the name of the executable that @code{executable-find}
+This should be the name of an executable that @code{executable-find}
 can find.
 
 @item port
@@ -207,6 +208,7 @@ run, that gets inserted into the buffer in the @code{buffer} slot.
 This package provides a derived class from @code{webdriver-service}, the
 @code{webdriver-service-firefox} class.  This class runs the executable
 ``geckodriver'' and by default listens to port 4444.
+It also provides a @code{webdriver-service-chrome} class.
 
 @node Webdriver Capabilities
 @section Webdriver Capabilities
